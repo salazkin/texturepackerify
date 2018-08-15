@@ -1,9 +1,9 @@
 "use strict";
 
 var fs = require("fs");
-var atlas = require('./build/atlas/buildAtlas');
-var extract = require('./build/atlas/extractAtlas');
-var hashUtil = require('./build/hash');
+var pack = require('./src/pack');
+var extract = require('./src/extract');
+var hashUtil = require('./src/hashUtil');
 
 var oldHash = {};
 var newHash = null;
@@ -11,8 +11,8 @@ var newHash = null;
 var assetsUrl = "";
 var src = "";
 
-module.exports = function() {
-	assetsUrl = "./";
+module.exports = function(url) {
+	assetsUrl = url ? url : "./";
 	src = assetsUrl + "atlases/";
 
 	if (!fs.existsSync(src)) {
@@ -91,7 +91,7 @@ function buildAtlas(dir, next) {
 	}
 
 	if (!skip) {
-		atlas(dir, newHash, () => {
+		pack(dir, newHash, () => {
 			hashUtil.saveHash(assetsUrl, oldHash, next);
 		});
 	} else {

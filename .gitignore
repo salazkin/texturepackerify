@@ -1,2 +1,4 @@
 node_modules
-atlases
+package-lock.json
+test
+test.js
