@@ -17,7 +17,7 @@ $ npm install texturepackerify
 ```
 
 ### Build
-Put images inside `assets/your_atlas_name`
+Put images inside `atlases/your_atlas_name`
 
 run
 ```sh
