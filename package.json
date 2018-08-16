@@ -1,6 +1,8 @@
 {
     "name": "texturepackerify",
     "version": "0.0.6",
+    "keywords": ["spritesheet", "texture", "atlas", "packer", "extractor"],
+    "homepage":"https://github.com/salazkin/texturepackerify",
     "dependencies": {
         "maxrects-packer": "^2.0.0",
         "md5-file": "^3.2.3"

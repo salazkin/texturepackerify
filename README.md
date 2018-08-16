@@ -1,5 +1,5 @@
 # TexturePackerify
-texture atlass tool
+command-line texture packer and extractor.
 
 ### Installation
 
@@ -23,3 +23,6 @@ run
 ```sh
 $ node index.js
 ```
+
+### Extract
+You can put packed atlases inside `atlases/` folder and TexturePackerify will automatically extract images.
