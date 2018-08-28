@@ -5,24 +5,34 @@ command-line texture packer and extractor.
 
 Requires [Node.js](https://nodejs.org/) and [ImageMagick](https://www.imagemagick.org/).
 
-create `index.js` inside your folder
-
-```javascript
-let texturepackerify = require("texturepackerify");
-texturepackerify();
-```
-run
+Navigate to your project folder and run:
 ```sh
 $ npm install texturepackerify
 ```
 
-### Build
-Put images inside `atlases/your_atlas_name`
+### Example
+Put images inside `./test/atlases/your_atlas_name/`
+Create `index.js`:
 
-run
+```javascript
+let texturepackerify = require("texturepackerify");
+texturepackerify.pack({url:"./test/"}, ()=>{
+	console.log("done!");
+});
+```
+Run:
 ```sh
 $ node index.js
 ```
 
+### Config
+By default TexturePackerify will not rebuild packed atlases, use `force:true` to rebuild all.
+```javascript
+texturepackerify.pack({url:"./test/", force:true});
+```
+
 ### Extract
-You can put packed atlases inside `atlases/` folder and TexturePackerify will automatically extract images.
+TexturePackerify will extract atlases if there is no source folders;
+```javascript
+texturepackerify.extract({url:"./test/"}, ()=>{console.log("done!")});
+```

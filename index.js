@@ -8,45 +8,76 @@ var hashUtil = require('./src/hashUtil');
 var oldHash = {};
 var newHash = null;
 
+var force = false;
 var assetsUrl = "";
 var src = "";
 
-module.exports = function(url) {
-	assetsUrl = url ? url : "./";
+function extractAtlases(config = {}, cb) {
+	assetsUrl = config.url || "./";
 	src = assetsUrl + "atlases/";
 
 	if (!fs.existsSync(src)) {
-        console.log("\x1b[31m", "No dir " + src, "\x1b[0m");
+		trace("", `No dir ${src}`, "\x1b[31m");
 		return;
 	}
-
-	var packList = [];
+	
 	var extractList = [];
 	var files = fs.readdirSync(src);
-	for (var i = 0; i < files.length; i++) {
-		var file = files[i];
+	var skipList = [];
+	files.forEach((file) => {
 		if (fs.lstatSync(src + file).isDirectory()) {
-			packList.push(file);
+			skipList.push(file);
 		} else {
 			var match = file.indexOf(".json");
 			if (match > -1) {
 				extractList.push(file.substring(0, match));
 			}
 		}
-	}
-	extractList = extractList.filter((id) => packList.indexOf(id) == -1);
-	packList = packList.concat(extractList);
+	});
+
+	extractList = extractList.filter((id) => skipList.indexOf(id) == -1);
+
 	var next = function () {
 		if (extractList.length) {
-			extract(src + extractList.shift(), next)
-		} else if (!newHash) {
+			extract(src + extractList.shift(), next);
+		} else {
+			if (cb) {
+				cb();
+			}
+		}
+	};
+	next();
+}
+
+function packAtlases(config = {}, cb) {
+	assetsUrl = config.url || "./";
+	src = assetsUrl + "atlases/";
+	force = config.force || false;
+
+	if (!fs.existsSync(src)) {
+		trace("", `No dir ${src}`, "\x1b[31m");
+		return;
+	}
+
+	var packList = [];
+	var files = fs.readdirSync(src);
+	files.forEach((file) => {
+		if (fs.lstatSync(src + file).isDirectory()) {
+			packList.push(file);
+		}
+	});
+
+	var next = function () {
+		if (!newHash) {
 			getHash(next);
 		} else if (packList.length) {
 			buildAtlas(src + packList.shift(), next);
 		} else {
-			hashUtil.saveHash(assetsUrl, oldHash, ()=>{
-                // done
-            });
+			hashUtil.saveHash(assetsUrl, oldHash, () => {
+				if (cb) {
+					cb();
+				}
+			});
 		}
 	};
 	next();
@@ -75,7 +106,7 @@ function buildAtlas(dir, next) {
 			}
 		}
 
-		if (process.argv.indexOf("-f") !== -1) {
+		if (force) {
 			skip = false;
 		}
 
@@ -91,11 +122,11 @@ function buildAtlas(dir, next) {
 	}
 
 	if (!skip) {
+		trace("Pack", dir + ".json", "\x1b[32m");
 		pack(dir, newHash, () => {
 			hashUtil.saveHash(assetsUrl, oldHash, next);
 		});
 	} else {
-        //console.log("\x1b[2m", "Skip " + dir, "\x1b[0m");
 		next();
 	}
 }
@@ -111,4 +142,13 @@ function getFiles() {
 		}
 	}
 	return list;
+}
+
+function trace(prefix, str, color) {
+	console.log(`${prefix ? prefix + " ":""}${color || ""}${str}\x1b[0m`);
+}
+
+module.exports = {
+	pack: packAtlases,
+	extract: extractAtlases
 }

@@ -70,9 +70,7 @@ function extractNext() {
 	var frameId = [frame.x, frame.y, frame.w, frame.h].join("_");
 	if(!extracted[frameId]){
 		extracted[frameId] = {id:outputName, x:spriteSource.x, y:spriteSource.y};
-
-        console.log("Extract", "\x1b[33m", src + "/" + outputName,"\x1b[0m");
-
+		trace("Extract", src + "/" + outputName, "\x1b[33m");
 		exec("convert -size " + frame.w + "x" + frame.h + " xc:transparent " + src + ext + " -geometry -" + frame.x + "-" + frame.y + " -composite  -strip " + tmp + "/" + outputName, (err, stdout, stderr) => {
 			exec("convert -size " + source.w + "x" + source.h + " xc:transparent " + tmp + "/" + outputName + " -geometry +" + spriteSource.x + "+" + spriteSource.y + " -composite  -strip " + src + "/" + outputName, (err, stdout, stderr) => {
 				extractNext();
@@ -87,6 +85,10 @@ function extractNext() {
 		};
 		extractNext();
 	}
+}
+
+function trace(prefix, str, color){
+	console.log(`${prefix ? prefix + " ":""}${color || ""}${str}\x1b[0m`);
 }
 
 function saveConfig(){

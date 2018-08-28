@@ -39,8 +39,6 @@ module.exports = function(srcStr, hashObj, cb) {
 	duplicates = {};
 	files = fs.readdirSync(src).filter((value) => value.indexOf(".png") > -1);
 
-    console.log("Pack", "\x1b[32m", src + ".json","\x1b[0m");
-
 	if (!fs.existsSync(tmp)) {
 		fs.mkdirSync(tmp);
 	}
@@ -200,11 +198,7 @@ function saveJson() {
 	}
 
 	var atlasStr = "{\"frames\":{\n\t" + framesStr + "\n\t}\n},\n\"meta\":{" + metaStr + "\n}\n}";
-
-	if(process.argv.indexOf("-noext") !== -1){
-		atlasStr = atlasStr.replace(/.png/g, "");
-	}
-
+	
 	fs.writeFile(src + ".json", atlasStr, saveBlocksData);
 }
 
