@@ -14,26 +14,19 @@ var files = [];
 var atlas = null;
 var duplicates = {};
 var hash = {};
-var DEFAULT_EXTRUDE_SPACE = 1;
-var DEFAULT_EXTRA_SPACE = 2;
-var DEFAULT_EXTRUDE = false;
+
 var extraSpace = 0;
 var jpg = false;
 var pot = true;
 var square = false;
 var colorDepth = 8;
 var extrude = false;
+var extrudeList = [];
 
 module.exports = function(srcStr, hashObj, cb) {
 	hash = hashObj;
 	tmp = tmpdir + "/lgs-tmp";
 	src = srcStr;
-	jpg = false;
-	pot = true;
-	square = false;
-	extrude = DEFAULT_EXTRUDE;
-	colorDepth = 8;
-	extraSpace = DEFAULT_EXTRA_SPACE;
 	done = cb;
 	blocks = [];
 	duplicates = {};
@@ -49,33 +42,28 @@ module.exports = function(srcStr, hashObj, cb) {
 function readConfig(){
 	if (fs.existsSync(src + "/config.json")) {
 		fs.readFile(src + "/config.json", "utf-8", function(err, data) {
-			var config = JSON.parse(data);
-			if(config.jpg !== undefined){
-				jpg = config.jpg;
-			}
-			if(config.extraSpace !== undefined){
-				extraSpace = config.extraSpace;
-			}
-			if(config.extrude !== undefined){
-				extrude = config.extrude;
-			}
-			if(config.pot !== undefined){
-				pot = config.pot;
-			}
-			if(config.square !== undefined){
-				square = config.square;
-			}
-			if(config.colorDepth!== undefined){
-				colorDepth = config.colorDepth;
-			}
-			initPacker();
+			initPacker(JSON.parse(data));
 		});
 	} else {
-		initPacker();
+		initPacker({});
 	}
 }
 
-function initPacker(){
+function initPacker(config){
+	jpg = config.jpg || false;
+	extraSpace = config.extraSpace || 2;
+	pot = config.pot || true;
+	square = config.square || false;
+	colorDepth = config.colorDepth || 8;
+
+	if(config.extrude && Array.isArray(config.extrude)){
+		extrudeList = config.extrude;
+		extrude = extrudeList.length > 0;
+	}else{
+		extrudeList = [];
+		extrude = config.extrude || false;
+	}
+	
 	packer = new MaxRectsPacker(4096, 4096, extraSpace, {smart:true, pot:pot, square:square});
 	trimNext();
 }
@@ -90,7 +78,9 @@ function trimNext() {
 	exec("convert " + src + "/" + img + " -border " + offset + "x" + offset + " -trim -format \"%W %H %X %Y %w %h %#\" info:-", (err, stdout, stderr) => {
 		var data = stdout.split(" ");
 		var block = { id: img };
-		var extrudeSpace = extrude ? DEFAULT_EXTRUDE_SPACE * 2 : 0;
+
+		var extrudeSpace = getExtrudeSpace(img) * 2;
+
 		block.width = Number(data[0]) - offset * 2 + extraSpace + extrudeSpace;
 		block.height = Number(data[1]) - offset * 2 + extraSpace + extrudeSpace;
 		block.x = Number(data[2]) - offset;
@@ -111,6 +101,14 @@ function trimNext() {
 	});
 }
 
+function getExtrudeSpace(img){
+	let space = extrude ? 1 : 0;
+	if(extrudeList.length > 0){
+		space = (extrudeList.indexOf(img) > -1) ? 1 : 0;
+	}
+	return space;
+}
+
 function buildAtlas() {
 	fitBlocks();
 
@@ -119,7 +117,7 @@ function buildAtlas() {
 	}
 	for (var i = 0; i < blocks.length; i++) {
 		var block = blocks[i];
-		var extrudeSpace = extrude ? DEFAULT_EXTRUDE_SPACE : 0;
+		var extrudeSpace = getExtrudeSpace(block.id);
 		atlas.frames[block.id] = {
 			frame: { 
 				x: block.fit.x + extrudeSpace, 
@@ -208,7 +206,7 @@ function saveBlocksData() {
 		if(duplicates[id] === undefined && !atlas.frames[id].dup){
 			var frame = atlas.frames[id].frame;
 			var img = atlas.frames[id].trimmed ? tmp + "/" + hash[src + "/" + id] + ".png" : src + "/" + id;
-			if(extrude){
+			if(getExtrudeSpace(id) > 0){
 				blocksStr += addExtrudeData(img, frame);
 			}
 			blocksStr += " " + img + " -geometry +" + frame.x + "+" + frame.y + " -composite";
