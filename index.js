@@ -98,6 +98,10 @@ function buildAtlas(dir, next) {
 	var skip = true;
 
 	if (files.length > 0) {
+		if(Object.keys(oldHash).filter(value=>value.indexOf(dir) !== -1).length !== files.length){
+			skip = false;
+		}
+		
 		for (var i = 0; i < files.length; i++) {
 			var fileId = dir + "/" + files[i];
 			if (oldHash[fileId] === undefined || oldHash[fileId] !== newHash[fileId]) {
