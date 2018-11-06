@@ -15,17 +15,11 @@ var atlas = null;
 var duplicates = {};
 var hash = {};
 
-var extraSpace = 0;
-var jpg = false;
-var pot = true;
-var square = false;
-var colorDepth = 8;
-var extrude = false;
-var extrudeList = [];
+var extraSpace, jpg, pot, square, colorDepth, extrude;
 
 module.exports = function(srcStr, hashObj, cb) {
 	hash = hashObj;
-	tmp = tmpdir + "/lgs-tmp";
+	tmp = tmpdir + "/tp-tmp";
 	src = srcStr;
 	done = cb;
 	blocks = [];
@@ -50,20 +44,14 @@ function readConfig(){
 }
 
 function initPacker(config){
-	jpg = config.jpg || false;
+
 	extraSpace = config.extraSpace || 2;
+	jpg = config.jpg || false;
+	extrude = config.extrude || false;
 	pot = config.pot || true;
 	square = config.square || false;
 	colorDepth = config.colorDepth || 8;
 
-	if(config.extrude && Array.isArray(config.extrude)){
-		extrudeList = config.extrude;
-		extrude = extrudeList.length > 0;
-	}else{
-		extrudeList = [];
-		extrude = config.extrude || false;
-	}
-	
 	packer = new MaxRectsPacker(4096, 4096, extraSpace, {smart:true, pot:pot, square:square});
 	trimNext();
 }
@@ -78,9 +66,7 @@ function trimNext() {
 	exec("convert " + src + "/" + img + " -border " + offset + "x" + offset + " -trim -format \"%W %H %X %Y %w %h %#\" info:-", (err, stdout, stderr) => {
 		var data = stdout.split(" ");
 		var block = { id: img };
-
-		var extrudeSpace = getExtrudeSpace(img) * 2;
-
+		var extrudeSpace = isExtrude(img) ? 2 : 0;
 		block.width = Number(data[0]) - offset * 2 + extraSpace + extrudeSpace;
 		block.height = Number(data[1]) - offset * 2 + extraSpace + extrudeSpace;
 		block.x = Number(data[2]) - offset;
@@ -101,12 +87,15 @@ function trimNext() {
 	});
 }
 
-function getExtrudeSpace(img){
-	let space = extrude ? 1 : 0;
-	if(extrudeList.length > 0){
-		space = (extrudeList.indexOf(img) > -1) ? 1 : 0;
+function isExtrude(id){
+	if(extrude !== undefined){
+		if(Array.isArray(extrude)){
+			return extrude.indexOf(id) !== -1;
+		}else{
+			return extrude;
+		}
 	}
-	return space;
+	return false;
 }
 
 function buildAtlas() {
@@ -117,7 +106,7 @@ function buildAtlas() {
 	}
 	for (var i = 0; i < blocks.length; i++) {
 		var block = blocks[i];
-		var extrudeSpace = getExtrudeSpace(block.id);
+		var extrudeSpace = isExtrude(block.id) ? 1 : 0;
 		atlas.frames[block.id] = {
 			frame: { 
 				x: block.fit.x + extrudeSpace, 
@@ -206,7 +195,7 @@ function saveBlocksData() {
 		if(duplicates[id] === undefined && !atlas.frames[id].dup){
 			var frame = atlas.frames[id].frame;
 			var img = atlas.frames[id].trimmed ? tmp + "/" + hash[src + "/" + id] + ".png" : src + "/" + id;
-			if(getExtrudeSpace(id) > 0){
+			if(isExtrude(id)){
 				blocksStr += addExtrudeData(img, frame);
 			}
 			blocksStr += " " + img + " -geometry +" + frame.x + "+" + frame.y + " -composite";
