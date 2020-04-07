@@ -11,7 +11,7 @@ $ npm install texturepackerify
 
 # Build Atlases
 Place images inside folders. Each folder will be packed to atlas:
-```sh
+```
 src
 |- atlas1
 |  |- img0.png
@@ -41,7 +41,7 @@ $ node pack.js
 ```
 
 Output:
-```sh
+```
 src
 |- ...
 |  atlas1.png
@@ -64,7 +64,7 @@ Each atlas can hold `config.json` with parameters:
 
 ### Example
 Place `config.json` in `atlas` folder:
-```sh
+```
 src
 |- atlas1
 |  |- img0.png
@@ -74,11 +74,11 @@ src
 `config.json`:
 ```javascript
 {
-    "extraSpace":0,
-	"jpg":true,
-	"extrude":true,
-	"square":true,
-	"colorDepth": 8
+    "extraSpace": 0,
+    "jpg": true,
+    "extrude": true,
+    "square": true,
+    "colorDepth": 8
 }
 ```
 
