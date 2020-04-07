@@ -1,6 +1,6 @@
 {
     "name": "texturepackerify",
-    "version": "0.0.13",
+    "version": "0.0.14",
     "keywords": ["spritesheet", "texture", "atlas", "packer", "extractor"],
     "homepage":"https://github.com/salazkin/texturepackerify",
     "dependencies": {
