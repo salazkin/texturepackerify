@@ -83,7 +83,7 @@ src
 ```
 
 ### Extract
-TexturePackerify can extract atlases. Place `atlas.png` and `atlas.json` to `src` folder:
+TexturePackerify can extract atlases. Place `atlas.png` and `atlas.json` to `src` folder.
 Create `extract.js`:
 ```javascript
 texturepackerify.extract({url:"./src/"}, ()=>{console.log("done!")});
