@@ -64,6 +64,9 @@ function trimNext() {
 
 	var img = files.shift();
 	exec("convert " + src + "/" + img + " -border " + offset + "x" + offset + " -trim -format \"%W %H %X %Y %w %h %#\" info:-", (err, stdout, stderr) => {
+		if(err || stderr){
+			console.log(err, stderr);
+		}
 		var data = stdout.split(" ");
 		var block = { id: img };
 		var extrudeSpace = isExtrude(img) ? 2 : 0;
@@ -79,6 +82,9 @@ function trimNext() {
 		var hashId = hash[src + "/" + img] + ".png";
 		if (block.trim && !fs.existsSync(tmp + "/" + hashId)) {
 			exec("convert -background none " + src + "/" + img + " -bordercolor none -border " + offset + "x" + offset + " -trim " + tmp + "/" + hashId, (err, stdout, stderr) => {
+				if(err || stderr){
+					console.log(err, stderr);
+				}
 				trimNext();
 			});
 		} else {

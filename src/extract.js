@@ -9,15 +9,15 @@ var done = null;
 var list = null;
 var frames = null;
 var extracted = {};
-var saveDublicates = false;
-var dublicates = {};
+var saveDuplicates = false;
+var duplicates = {};
 
 module.exports = function (atlasId, cb) {
 	src = atlasId;
 	done = cb;
 	list = [];
 	extracted = {};
-	dublicates = {};
+	duplicates = {};
 	if (!fs.existsSync(tmp)) {
 		fs.mkdirSync(tmp);
 	}
@@ -52,8 +52,8 @@ module.exports = function (atlasId, cb) {
 function extractNext() {
 	if(list.length === 0){
 		clearTmp();
-		if(saveDublicates){
-			fs.writeFile(src + "/frames.json", JSON.stringify(dublicates), saveConfig);
+		if(saveDuplicates){
+			fs.writeFile(src + "/frames.json", JSON.stringify(duplicates), saveConfig);
 		}else{
 			saveConfig();
 		}
@@ -72,13 +72,19 @@ function extractNext() {
 		extracted[frameId] = {id:outputName, x:spriteSource.x, y:spriteSource.y};
 		trace("Extract", src + "/" + outputName, "\x1b[33m");
 		exec("convert -size " + frame.w + "x" + frame.h + " xc:transparent " + src + ext + " -geometry -" + frame.x + "-" + frame.y + " -composite  -strip " + tmp + "/" + outputName, (err, stdout, stderr) => {
+			if(err || stderr){
+				console.log(err, stderr);
+			}
 			exec("convert -size " + source.w + "x" + source.h + " xc:transparent " + tmp + "/" + outputName + " -geometry +" + spriteSource.x + "+" + spriteSource.y + " -composite  -strip " + src + "/" + outputName, (err, stdout, stderr) => {
+				if(err || stderr){
+					console.log(err, stderr);
+				}
 				extractNext();
 			});
 		});
 	}else{
-		saveDublicates = true;
-		dublicates[outputName] = {
+		saveDuplicates = true;
+		duplicates[outputName] = {
 			id:extracted[frameId].id, 
 			offsetX:spriteSource.x - extracted[frameId].x,
 			offsetY:spriteSource.y - extracted[frameId].y

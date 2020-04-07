@@ -69,12 +69,6 @@ function saveHash(assetsUrl, hash, cb) {
     fs.writeFile(assetsUrl + "hash.json", JSON.stringify(hash, Object.keys(hash).sort(naturalCompare)), () => {
         md5File(assetsUrl + "hash.json", (err, hash) => {
             cb();
-            /*var version = {
-            	version: Math.abs(hashCode(hash))
-            };
-            fs.writeFile(assetsUrl + "version.json", JSON.stringify(version), () => {
-            	cb();
-            });*/
         });
     });
 }

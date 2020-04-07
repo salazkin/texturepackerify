@@ -9,23 +9,22 @@ var oldHash = {};
 var newHash = null;
 
 var force = false;
+var hashUrl = "";
 var assetsUrl = "";
-var src = "";
 
 function extractAtlases(config = {}, cb) {
 	assetsUrl = config.url || "./";
-	src = assetsUrl + "atlases/";
-
-	if (!fs.existsSync(src)) {
-		trace("", `No dir ${src}`, "\x1b[31m");
+	hashUrl = config.hashUrl || assetsUrl;
+	if (!fs.existsSync(assetsUrl)) {
+		trace("", `No dir ${assetsUrl}`, "\x1b[31m");
 		return;
 	}
 	
 	var extractList = [];
-	var files = fs.readdirSync(src);
+	var files = fs.readdirSync(assetsUrl);
 	var skipList = [];
 	files.forEach((file) => {
-		if (fs.lstatSync(src + file).isDirectory()) {
+		if (fs.lstatSync(assetsUrl + file).isDirectory()) {
 			skipList.push(file);
 		} else {
 			var match = file.indexOf(".json");
@@ -39,7 +38,7 @@ function extractAtlases(config = {}, cb) {
 
 	var next = function () {
 		if (extractList.length) {
-			extract(src + extractList.shift(), next);
+			extract(assetsUrl + extractList.shift(), next);
 		} else {
 			if (cb) {
 				cb();
@@ -51,18 +50,18 @@ function extractAtlases(config = {}, cb) {
 
 function packAtlases(config = {}, cb) {
 	assetsUrl = config.url || "./";
-	src = assetsUrl + "atlases/";
+	hashUrl = config.hashUrl || assetsUrl;
 	force = config.force || false;
 
-	if (!fs.existsSync(src)) {
-		trace("", `No dir ${src}`, "\x1b[31m");
+	if (!fs.existsSync(assetsUrl)) {
+		trace("", `No dir ${assetsUrl}`, "\x1b[31m");
 		return;
 	}
 
 	var packList = [];
-	var files = fs.readdirSync(src);
+	var files = fs.readdirSync(assetsUrl);
 	files.forEach((file) => {
-		if (fs.lstatSync(src + file).isDirectory()) {
+		if (fs.lstatSync(assetsUrl + file).isDirectory()) {
 			packList.push(file);
 		}
 	});
@@ -71,9 +70,9 @@ function packAtlases(config = {}, cb) {
 		if (!newHash) {
 			getHash(next);
 		} else if (packList.length) {
-			buildAtlas(src + packList.shift(), next);
+			buildAtlas(assetsUrl + packList.shift(), next);
 		} else {
-			hashUtil.saveHash(assetsUrl, oldHash, () => {
+			hashUtil.saveHash(hashUrl, oldHash, () => {
 				if (cb) {
 					cb();
 				}
@@ -86,7 +85,7 @@ function packAtlases(config = {}, cb) {
 function getHash(next) {
 	hashUtil.getHash(getFiles(), (hash) => {
 		newHash = hash;
-		hashUtil.loadHash(assetsUrl, (hash) => {
+		hashUtil.loadHash(hashUrl, (hash) => {
 			oldHash = hash;
 			next();
 		})
@@ -125,7 +124,7 @@ function buildAtlas(dir, next) {
 	if (!skip) {
 		trace("Pack", dir + ".json", "\x1b[32m");
 		pack(dir, newHash, () => {
-			hashUtil.saveHash(assetsUrl, oldHash, next);
+			hashUtil.saveHash(hashUrl, oldHash, next);
 		});
 	} else {
 		next();
@@ -133,12 +132,12 @@ function buildAtlas(dir, next) {
 }
 
 function getFiles() {
-	var files = fs.readdirSync(src);
+	var files = fs.readdirSync(assetsUrl);
 	var list = [];
 	for (var i = 0; i < files.length; i++) {
 		var file = files[i];
-		if (fs.lstatSync(src + file).isDirectory()) {
-			list = list.concat(fs.readdirSync(src + file).map((id) => src + file + "/" + id));
+		if (fs.lstatSync(assetsUrl + file).isDirectory()) {
+			list = list.concat(fs.readdirSync(assetsUrl + file).map((id) => assetsUrl + file + "/" + id));
 			list = list.filter((id) => id.indexOf(".png") !== -1 || id.indexOf(".json") !== -1);
 		}
 	}
