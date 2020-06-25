@@ -1,7 +1,7 @@
 # TexturePackerify
 Command-line Texture Packer and Extractor.
 
-# Setup
+## Setup
 - Install [Node.js](https://nodejs.org/) 
 - Install [ImageMagick](https://www.imagemagick.org/) (check "**Install legacy utilities**" during instalation.)
 - Navigate to your project root and run:
@@ -9,27 +9,28 @@ Command-line Texture Packer and Extractor.
 $ npm install texturepackerify
 ```
 
-# Build Atlases
+## Build Atlases
 Place images inside folders. Each folder will be packed to atlas:
 ```
 src
-|- atlas1
-|  |- img0.png
-|  |- img1.png
-|  |- ...
-|- atlas2
-|  |- img12.png
-|  |- img13.png
-|  |- ...
+├── atlas1
+│  ├── img0.png
+│  ├── img1.png
+│  ├── ...
+├── atlas2
+│  ├── img12.png
+│  ├── img13.png
+│  ├── ...
 ```
 
 Create `pack.js`:
 ```javascript
-let texturepackerify = require("texturepackerify");
-let config = {
-    url: "./src/", //Path to atlases. Default - './'
+const texturepackerify = require("texturepackerify");
+const config = {
+    url: "./src/", //Path to atlases. Default: './'
     hashUrl: "./src/", //Where to store 'hash.json'. Atlases path will be used as default
-    force: false //Force rebuild all atlases. By default packed atlases will be skipped.
+    scales: [1, 0.5] //Output scales. Default: [1]
+    force: false //Force rebuild all atlases. By default packed atlases will be skipped
 }
 texturepackerify.pack(config, () => {
     console.log("done!");
@@ -43,16 +44,16 @@ $ node pack.js
 Output:
 ```
 src
-|- ...
-|  atlas1.png
-|  atlas1.json
-|  atlas2.png
-|  atlas2.json
-|  hash.json
-|  ...
+├──...
+│  atlas1.png
+│  atlas1.json
+│  atlas2.png
+│  atlas2.json
+│  hash.json
+│  ...
 ```
 
-### Atlas Config
+## Atlas Config
 Each atlas can hold `config.json` with parameters:
 
 - `"extraSpace"` - space between texture frames. Default - `2`
@@ -62,15 +63,16 @@ Each atlas can hold `config.json` with parameters:
 - `"square"` - atlas size fixed to squre. Default - `false`
 - `"colorDepth"` - color depth for texture. Default - `8`
 
-### Example
+## Example
 Place `config.json` in `atlas` folder:
 ```
 src
-|- atlas1
-|  |- img0.png
-|  |- ...
-|  |- config.json
+├── atlas1
+│  ├── img0.png
+│  ├── ...
+│  ├── config.json
 ```
+
 `config.json`:
 ```javascript
 {
@@ -82,10 +84,11 @@ src
 }
 ```
 
-### Extract
+## Extract
 TexturePackerify can extract atlases. Place `atlas.png` and `atlas.json` to `src` folder.
 Create `extract.js`:
 ```javascript
+const texturepackerify = require("texturepackerify");
 texturepackerify.extract({url:"./src/"}, ()=>{console.log("done!")});
 ```
 Run:

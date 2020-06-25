@@ -1,10 +1,13 @@
 {
     "name": "texturepackerify",
-    "version": "0.0.14",
+    "author": "Alexey Salazkin",
+    "version": "0.0.15",
+    "description": "Command-line Texture Packer and Extractor.",
     "keywords": ["spritesheet", "texture", "atlas", "packer", "extractor"],
     "homepage":"https://github.com/salazkin/texturepackerify",
     "dependencies": {
         "maxrects-packer": "^2.0.0",
         "md5-file": "^3.2.3"
-    }
+    },
+    "license": "MIT"
 }
