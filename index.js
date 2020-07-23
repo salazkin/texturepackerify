@@ -3,7 +3,8 @@
 const fs = require("fs");
 const pack = require('./src/pack');
 const extract = require('./src/extract');
-const hashUtils = require('./src/hash-utils');
+const filesHelper = require('./src/utils/files-helper');
+const log = require('./src/utils/log');
 
 let oldHash = {};
 let newHash = null;
@@ -12,12 +13,23 @@ let force = false;
 let hashUrl = "";
 let assetsUrl = "";
 let scales = null;
+let defaultAtlasConfig = {
+    extraSpace: 2,
+    jpg: false,
+    extrude: false,
+    pot: true,
+    square: false,
+    colorDepth: 8,
+    spriteExtensions: true,
+    animations: false
+};
 
-function extractAtlases(config = {}, cb) {
+const extractAtlases = (config = {}, cb) => {
     assetsUrl = config.url || "./";
     hashUrl = config.hashUrl || assetsUrl;
+
     if (!fs.existsSync(assetsUrl)) {
-        trace("", `No dir ${assetsUrl}`, "\x1b[31m");
+        log.trace("", `No dir ${assetsUrl}`, log.COLOR.RED);
         return;
     }
 
@@ -47,15 +59,17 @@ function extractAtlases(config = {}, cb) {
         }
     };
     next();
-}
+};
 
-function packAtlases(config = {}, cb) {
+const packAtlases = (config = {}, cb) => {
     assetsUrl = config.url || "./";
     hashUrl = config.hashUrl || assetsUrl;
     force = config.force || false;
     scales = config.scales || [1];
+    defaultAtlasConfig = Object.assign({}, defaultAtlasConfig, config.defaultAtlasConfig);
+
     if (!fs.existsSync(assetsUrl)) {
-        trace("", `No dir ${assetsUrl}`, "\x1b[31m");
+        log.trace("", `No dir ${assetsUrl}`, log.COLOR.RED);
         return;
     }
 
@@ -73,7 +87,7 @@ function packAtlases(config = {}, cb) {
         } else if (packList.length) {
             buildAtlas(assetsUrl + packList.shift(), next);
         } else {
-            hashUtils.saveHash(hashUrl, oldHash, () => {
+            filesHelper.saveHash(hashUrl, oldHash, () => {
                 if (cb) {
                     cb();
                 }
@@ -83,18 +97,19 @@ function packAtlases(config = {}, cb) {
     next();
 };
 
-function getHash(next) {
-    hashUtils.getHash(getFiles(), (hash) => {
+const getHash = (next) => {
+    filesHelper.getHash(getFiles(), hash => {
         newHash = hash;
-        hashUtils.loadHash(hashUrl, (hash) => {
+        filesHelper.loadHash(hashUrl, hash => {
             oldHash = hash;
             next();
         });
     });
-}
+};
 
-function buildAtlas(dir, next) {
-    const files = fs.readdirSync(dir).filter((value) => value.indexOf(".png") > -1 || value.indexOf(".json") > -1);
+const buildAtlas = (dir, next) => {
+    const files = filesHelper.getFilesRecursive(dir + "/", false).filter(value => value.indexOf(".png") > -1 || value.indexOf(".json") > -1);
+
     let skip = true;
 
     if (files.length > 0) {
@@ -121,42 +136,36 @@ function buildAtlas(dir, next) {
             skip = false;
         }
     }
-
     if (!skip) {
-        trace("Pack", dir + ".json", "\x1b[32m");
-        pack({ src: dir, hash: newHash, scales: scales }, () => {
-            hashUtils.saveHash(hashUrl, oldHash, next);
+        log.trace("Pack", dir + ".json", log.COLOR.GREEN);
+        pack({ src: dir, hash: newHash, scales, defaultAtlasConfig }, () => {
+            filesHelper.saveHash(hashUrl, oldHash, next);
         });
     } else {
         next();
     }
-}
+};
 
-function isAtlasExists(path) {
+const isAtlasExists = (path) => {
     if (scales.length === 1) {
         return fs.existsSync(path + ".json");
     } else {
         return fs.existsSync(path + "@1x.json");
     }
-}
+};
 
-function getFiles() {
+const getFiles = () => {
     const files = fs.readdirSync(assetsUrl);
     let list = [];
 
     files.forEach(file => {
         if (fs.lstatSync(assetsUrl + file).isDirectory()) {
-            list = list.concat(fs.readdirSync(assetsUrl + file).map((id) => assetsUrl + file + "/" + id));
-            list = list.filter((id) => id.indexOf(".png") !== -1 || id.indexOf(".json") !== -1);
+            list = list.concat(filesHelper.getFilesRecursive(assetsUrl + file + "/").filter(id => id.indexOf(".png") !== -1 || id.indexOf(".json") !== -1));
         }
     });
-
     return list;
-}
+};
 
-function trace(prefix, str, color) {
-    console.log(`${prefix ? prefix + " " : ""}${color || ""}${str}\x1b[0m`);
-}
 
 module.exports = {
     pack: packAtlases,
