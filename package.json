@@ -1,7 +1,7 @@
 {
     "name": "texturepackerify",
     "author": "Alexey Salazkin",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Command-line Texture Packer and Extractor.",
     "keywords": ["spritesheet", "texture", "atlas", "packer", "extractor"],
     "homepage":"https://github.com/salazkin/texturepackerify",
