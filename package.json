@@ -1,7 +1,7 @@
 {
     "name": "texturepackerify",
     "author": "Alexey Salazkin",
-    "version": "0.0.16",
+    "version": "0.1.0",
     "description": "Command-line Texture Packer and Extractor.",
     "keywords": ["spritesheet", "texture", "atlas", "packer", "extractor"],
     "homepage":"https://github.com/salazkin/texturepackerify",
@@ -9,5 +9,8 @@
         "maxrects-packer": "^2.0.0",
         "md5-file": "^3.2.3"
     },
-    "license": "MIT"
+    "license": "MIT",
+    "devDependencies": {
+        "eslint": "^7.21.0"
+    }
 }
