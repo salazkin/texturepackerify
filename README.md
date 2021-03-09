@@ -3,7 +3,7 @@ Command-line Texture Packer and Extractor.
 
 ## Setup
 - Install [Node.js](https://nodejs.org/) 
-- Install [ImageMagick](https://www.imagemagick.org/) (check "**Install legacy utilities**" during instalation.)
+- Install [ImageMagick](https://www.imagemagick.org/) (check "**Install legacy utilities**" during installation.)
 - Navigate to your project root and run:
 ```sh
 $ npm install texturepackerify
@@ -60,8 +60,9 @@ Each atlas can hold `config.json` with parameters:
 - `"jpeg"` - output to jpeg. Default - `false`
 - `"extrude"` - add extra pixels in bounds. Default - `false`
 - `"pot"` - atlas size fixed to power of two. Default - `true`
-- `"square"` - atlas size fixed to squre. Default - `false`
+- `"square"` - atlas size fixed to square. Default - `false`
 - `"colorDepth"` - color depth for texture. Default - `8`
+- `"animation"` - parse animations. Default - `false`
 
 ## Example
 Place `config.json` in `atlas` folder:
