@@ -1,5 +1,5 @@
 module.exports = (a, b) => {
-    let ax = [],
+    const ax = [],
         bx = [];
 
     a.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {

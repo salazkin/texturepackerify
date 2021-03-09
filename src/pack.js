@@ -7,10 +7,12 @@ const stringUtils = require('./utils/string-utils');
 const naturalCompare = require('./utils/natural-compare');
 
 const MaxRectsPacker = require("maxrects-packer").MaxRectsPacker;
+const tempFolderPath = filesHelper.getTempFolderPath();
+const offset = 2;
+
 let packer = null;
 let done = null;
-let tempFolderPath = filesHelper.getTempFolderPath();
-let offset = 2;
+
 let src = "";
 let blocks = [];
 let files = [];
@@ -43,7 +45,6 @@ module.exports = (packConfig, cb) => {
     readConfig();
 };
 
-
 const readConfig = () => {
     if (fs.existsSync(src + "/config.json")) {
         fs.readFile(src + "/config.json", "utf-8", (err, data) => {
@@ -74,10 +75,10 @@ const prepareNextImg = () => {
 };
 
 const scaleImg = () => {
-    let name = getTempImgName(currentImg, "scale");
+    const name = getTempImgName(currentImg, "scale");
 
     if (currentScale !== 1 && !fs.existsSync(tempFolderPath + "/" + name)) {
-        exec("convert -background none \"" + src + "/" + currentImg + `\" -resize ${100 * currentScale}% ` + tempFolderPath + "/" + name, (err, stdout, stderr) => {
+        exec("convert -background none \"" + src + "/" + currentImg + `" -resize ${100 * currentScale}% ` + tempFolderPath + "/" + name, (err, stdout, stderr) => {
             if (err || stderr) {
                 console.log(err, stderr);
             }
@@ -89,16 +90,16 @@ const scaleImg = () => {
 };
 
 const trimImg = () => {
-    let name = getTempImgName(currentImg, "trim");
-    let imgPath = currentScale === 1 ? src + "/" + currentImg : tempFolderPath + "/" + getTempImgName(currentImg, "scale");
+    const name = getTempImgName(currentImg, "trim");
+    const imgPath = currentScale === 1 ? src + "/" + currentImg : tempFolderPath + "/" + getTempImgName(currentImg, "scale");
 
     exec("convert \"" + imgPath + "\" -border " + offset + "x" + offset + " -trim -format \"%W %H %X %Y %w %h %#\" info:-", (err, stdout, stderr) => {
         if (err || stderr) {
             console.log(err, stderr);
         }
-        let data = stdout.split(" ");
-        let block = { id: currentImg };
-        let extrudeSpace = isExtrude(currentImg) ? 2 : 0;
+        const data = stdout.split(" ");
+        const block = { id: currentImg };
+        const extrudeSpace = isExtrude(currentImg) ? 2 : 0;
 
         block.width = Number(data[0]) - offset * 2 + currentAtlasConfig.extraSpace + extrudeSpace;
         block.height = Number(data[1]) - offset * 2 + currentAtlasConfig.extraSpace + extrudeSpace;
@@ -177,7 +178,7 @@ const buildAtlas = () => {
         atlasWidth -= currentAtlasConfig.extraSpace;
         atlasHeight -= currentAtlasConfig.extraSpace;
     }
-    let ext = currentAtlasConfig.jpg ? ".jpg" : ".png";
+    const ext = currentAtlasConfig.jpg ? ".jpg" : ".png";
 
     atlas.meta = {
         app: "http://www.texturepacker.com",
@@ -235,20 +236,20 @@ const saveJson = () => {
     let metaStr = JSON.stringify(atlas.meta);
     metaStr = metaStr.substring(1, metaStr.length - 1);
 
-    for (let metaId in atlas.meta) {
+    for (const metaId in atlas.meta) {
         metaStr = metaStr.replace(new RegExp("\"" + metaId + "\"", "g"), "\n\t\"" + metaId + "\"");
     }
-    let atlasStr = "{\"frames\":{\n\t" + framesStr + "\n\t}\n}," + animationsStr + "\n\"meta\":{" + metaStr + "\n}\n}";
+    const atlasStr = "{\"frames\":{\n\t" + framesStr + "\n\t}\n}," + animationsStr + "\n\"meta\":{" + metaStr + "\n}\n}";
     fs.writeFile(getExportAtlasPath() + "/" + getExportAtlasName() + ".json", atlasStr, saveBlocksData);
 };
 
 const saveBlocksData = () => {
     let blocksStr = "";
-    for (let id in atlas.frames) {
+    for (const id in atlas.frames) {
         if (duplicates[id] === undefined && !atlas.frames[id].dup) {
-            let frame = atlas.frames[id].frame;
+            const frame = atlas.frames[id].frame;
 
-            let img = getImageSource(id, atlas.frames[id].trimmed);
+            const img = getImageSource(id, atlas.frames[id].trimmed);
             if (isExtrude(id)) {
                 blocksStr += addExtrudeData(img, frame);
             }
@@ -293,14 +294,14 @@ const getExportAtlasName = () => {
 };
 
 const getExportAtlasPath = () => {
-    let arr = src.split("/");
+    const arr = src.split("/");
     arr.length = arr.length - 1;
     return arr.join("/");
 };
 
 const saveTexture = () => {
-    let ext = currentAtlasConfig.jpg ? ".jpg" : ".png";
-    let cmd = [
+    const ext = currentAtlasConfig.jpg ? ".jpg" : ".png";
+    const cmd = [
         "convert",
         "-size",
         atlas.meta.size.w + "x" + atlas.meta.size.h,
@@ -343,16 +344,16 @@ const fitBlocks = () => {
     blocks.sort((a, b) => { Math.min(b.w, b.h) - Math.min(a.w, a.h); });
     blocks.sort((a, b) => { return b.h - a.h; });
     blocks.sort((a, b) => { return b.w - a.w; });
-    let uniq = new Set();
-    let blocksWithoutDups = blocks.filter(block => {
+    const uniq = new Set();
+    const blocksWithoutDuplicates = blocks.filter(block => {
         if (!uniq.has(block.hash)) {
             uniq.add(block.hash);
             return block;
         }
     });
 
-    let fullNotation = blocksWithoutDups.map(block => {
-        let newBlock = {};
+    const fullNotation = blocksWithoutDuplicates.map(block => {
+        const newBlock = {};
         newBlock.width = block.w;
         newBlock.height = block.h;
         newBlock.data = block.id;
@@ -361,14 +362,14 @@ const fitBlocks = () => {
 
     packer.addArray(fullNotation);
 
-    blocksWithoutDups.forEach(e => {
-        let fitted = packer.bins[0].rects.find(packed => packed.data == e.id);
+    blocksWithoutDuplicates.forEach(e => {
+        const fitted = packer.bins[0].rects.find(packed => packed.data == e.id);
         e.fit = { x: fitted.x, y: fitted.y };
     });
 
     blocks.forEach(block => {
         if (!block.fit) {
-            blocksWithoutDups.forEach(fitBlock => {
+            blocksWithoutDuplicates.forEach(fitBlock => {
                 if (fitBlock.hash === block.hash) {
                     block.fit = fitBlock.fit;
                     block.isDuplicate = true;
@@ -381,19 +382,19 @@ const fitBlocks = () => {
 
 
 const parseAnimations = (keys) => {
-    let anims = {};
-    let sequenceArr = [...keys].sort(naturalCompare);
+    const anims = {};
+    const sequenceArr = [...keys].sort(naturalCompare);
 
-    let trimLastChars = "/_-";
+    const trimLastChars = "/_-";
     for (let i = 0; i < sequenceArr.length; i++) {
-        let split = stringUtils.parseSequenceString(sequenceArr[i]);
+        const split = stringUtils.parseSequenceString(sequenceArr[i]);
 
-        let id = split.preffix;
+        let id = split.prefix;
         if (id.length > 0 && trimLastChars.indexOf(id[id.length - 1]) !== -1) {
             id = id.substring(0, id.length - 1);
         }
 
-        if (id.length > 0 && split.suffix && i < sequenceArr.length - 1 && split.preffix + split.suffixIncremented + split.extension === sequenceArr[i + 1]) {
+        if (id.length > 0 && split.suffix && i < sequenceArr.length - 1 && split.prefix + split.suffixIncremented + split.extension === sequenceArr[i + 1]) {
             if (anims[id] === undefined) {
                 anims[id] = [sequenceArr[i]];
             }

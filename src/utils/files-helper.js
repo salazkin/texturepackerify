@@ -13,7 +13,7 @@ const clearTempFolderIfOversized = () => {
     const path = getTempFolderPath();
     if (fs.existsSync(path)) {
         let size = 0;
-        fs.readdirSync(path).forEach((file, index) => {
+        fs.readdirSync(path).forEach((file) => {
             size += fs.statSync(path + "/" + file).size;
         });
         if (size > 100 * 1024 * 1024) {
@@ -29,8 +29,8 @@ const clearTempFolder = () => {
 
 const deleteFolderRecursive = (path) => {
     if (fs.existsSync(path)) {
-        fs.readdirSync(path).forEach((file, index) => {
-            let currentPath = path + "/" + file;
+        fs.readdirSync(path).forEach((file) => {
+            const currentPath = path + "/" + file;
             if (fs.lstatSync(currentPath).isDirectory()) {
                 deleteFolderRecursive(currentPath);
             } else {
@@ -42,11 +42,11 @@ const deleteFolderRecursive = (path) => {
 };
 
 const getFilesRecursive = (src, prependPath = true) => {
-    let allFiles = [];
+    const allFiles = [];
     const parseDir = (path) => {
-        let files = fs.readdirSync(path);
+        const files = fs.readdirSync(path);
         files.forEach(file => {
-            let filePath = path + file;
+            const filePath = path + file;
             if (fs.lstatSync(filePath).isDirectory()) {
                 parseDir(filePath + "/");
             } else {
@@ -72,11 +72,11 @@ const loadHash = (assetsUrl, cb) => {
 };
 
 const getHash = (list, cb) => {
-    let files = JSON.parse(JSON.stringify(list));
-    let hashData = {};
-    let next = function () {
+    const files = JSON.parse(JSON.stringify(list));
+    const hashData = {};
+    const next = function () {
         if (files.length) {
-            let id = files.shift();
+            const id = files.shift();
             md5File(id, (err, hash) => {
                 hashData[id] = hash;
                 next();
@@ -90,7 +90,7 @@ const getHash = (list, cb) => {
 
 const saveHash = (assetsUrl, hash, cb) => {
     fs.writeFile(assetsUrl + "hash.json", JSON.stringify(hash, Object.keys(hash).sort(naturalCompare)), () => {
-        md5File(assetsUrl + "hash.json", (err, hash) => {
+        md5File(assetsUrl + "hash.json", () => {
             cb();
         });
     });
