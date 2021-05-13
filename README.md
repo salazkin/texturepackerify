@@ -62,7 +62,7 @@ Each atlas can hold `config.json` with parameters:
 - `"pot"` - atlas size fixed to power of two. Default - `true`
 - `"square"` - atlas size fixed to square. Default - `false`
 - `"colorDepth"` - color depth for texture. Default - `8`
-- `"animation"` - parse animations. Default - `false`
+- `"animations"` - parse animations. Default - `false`
 
 ## Example
 Place `config.json` in `atlas` folder:
