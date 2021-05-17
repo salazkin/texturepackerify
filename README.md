@@ -27,10 +27,13 @@ Create `pack.js`:
 ```javascript
 const texturepackerify = require("texturepackerify");
 const config = {
-    url: "./src/", //Path to atlases. Default: './'
-    hashUrl: "./src/", //Where to store 'hash.json'. Atlases path will be used as default
-    scales: [1, 0.5] //Output scales. Default: [1]
-    force: false //Force rebuild all atlases. By default packed atlases will be skipped
+    url: "./src/", //path to atlases. Default: './'
+    hashUrl: "./src/", //where to store 'hash.json'. Atlases path will be used as default
+    scales: [1, 0.5] //output scales. Default: [1]
+    force: false //force rebuild all atlases. By default packed atlases will be skipped
+    defaultAtlasConfig: {
+        //Override default atlas config: extraSpace, jpeg, extrude, pot, square, colorDepth, animations, spriteExtensions
+    }
 }
 texturepackerify.pack(config, () => {
     console.log("done!");
@@ -63,6 +66,7 @@ Each atlas can hold `config.json` with parameters:
 - `"square"` - atlas size fixed to square. Default - `false`
 - `"colorDepth"` - color depth for texture. Default - `8`
 - `"animations"` - parse animations. Default - `false`
+- `"spriteExtensions"` - add extension to frame name. Default - `true`
 
 ## Example
 Place `config.json` in `atlas` folder:
