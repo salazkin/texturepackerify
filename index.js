@@ -6,7 +6,7 @@ const extract = require('./src/extract');
 const filesHelper = require('./src/utils/files-helper');
 const log = require('./src/utils/log');
 
-let oldHash = {};
+let oldHash = null;
 let newHash = null;
 
 let force = false;
@@ -62,6 +62,8 @@ const extractAtlases = (config = {}, cb) => {
 };
 
 const packAtlases = (config = {}, cb) => {
+    oldHash = {};
+    newHash = null;
     assetsUrl = config.url || "./";
     hashUrl = config.hashUrl || assetsUrl;
     force = config.force || false;
