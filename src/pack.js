@@ -231,6 +231,8 @@ const saveJson = () => {
         animationsStr = animationsStr.substring(1, animationsStr.length - 1);
         animationsStr = animationsStr.replace(/],/g, "],\n\t");
         animationsStr = "\n\"animations\":{\n\t" + animationsStr + "\n},";
+    } else {
+        animationsStr = "";
     }
 
     let metaStr = JSON.stringify(atlas.meta);
