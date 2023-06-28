@@ -337,7 +337,7 @@ const onPackComplete = () => {
 };
 
 const getNewPacker = () => {
-    return new MaxRectsPacker(4096, 4096, currentAtlasConfig.extraSpace, { smart: true, pot: currentAtlasConfig.pot, square: currentAtlasConfig.square });
+    return new MaxRectsPacker(4096, 4096, currentAtlasConfig.extraSpace, { smart: true, pot: currentAtlasConfig.pot, square: currentAtlasConfig.square, border: currentAtlasConfig.border });
 };
 
 

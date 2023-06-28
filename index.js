@@ -15,6 +15,7 @@ let assetsUrl = "";
 let scales = null;
 let defaultAtlasConfig = {
     extraSpace: 2,
+    border: 0,
     jpg: false,
     extrude: false,
     pot: true,

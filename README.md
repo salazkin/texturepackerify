@@ -60,6 +60,7 @@ src
 Each atlas can hold `config.json` with parameters:
 
 - `"extraSpace"` - space between texture frames. Default - `2`
+- `"border"` - texture border. Default - `0`
 - `"jpeg"` - output to jpeg. Default - `false`
 - `"extrude"` - add extra pixels in bounds. Default - `false`
 - `"pot"` - atlas size fixed to power of two. Default - `true`
