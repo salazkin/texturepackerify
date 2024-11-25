@@ -82,7 +82,7 @@ const packAtlases = async (config = {}) => {
     await filesHelper.createDirectoryRecursive(outputDir);
     await filesHelper.createDirectoryRecursive(path.dirname(hashPath));
 
-    const assetsExist = await fs.access(inputDir).then(() => true).catch(() => false);
+    const assetsExist = await filesHelper.isFileExists(inputDir);
     if (!assetsExist) {
         throw new Error(`No folder ${inputDir}`);
     }
@@ -143,7 +143,8 @@ const buildAtlas = async (atlasDir) => {
             skip = false;
         }
 
-        if (!isAtlasExists(atlasDir)) {
+        const atlasExists = await isAtlasExists(atlasDir);
+        if (!atlasExists) {
             skip = false;
         }
     }
@@ -160,11 +161,12 @@ const buildAtlas = async (atlasDir) => {
     }
 };
 
-const isAtlasExists = (atlasPath) => {
-    if (scales.length === 1) {
-        return fs.access(`${atlasPath}.json`).then(() => true).catch(() => false);
+const isAtlasExists = async (atlasPath) => {
+    if (scales.length === 1 && scales[0] === 1) {
+        return filesHelper.isFileExists(`${atlasPath}.json`);
     } else {
-        return fs.access(`${atlasPath}@1x.json`).then(() => true).catch(() => false);
+        const filesExistArr = await Promise.all(scales.map(scale => filesHelper.isFileExists(`${atlasPath}@${scale}x.json`)));
+        return filesExistArr.every(value => value === true);
     }
 };
 

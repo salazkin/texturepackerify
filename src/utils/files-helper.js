@@ -26,6 +26,10 @@ const getFilesRecursive = async (dir, prependPath = true) => {
     return prependPath ? allFiles : allFiles.map(file => file.substring(prependNormalizedPath.length, file.length));
 };
 
+const isFileExists = async (filePath) => {
+    return fs.access(filePath).then(() => true).catch(() => false);
+};
+
 const createDirectoryRecursive = async (dir) => {
     try {
         await fs.access(dir);
@@ -72,6 +76,7 @@ const saveHash = async (hashPath, hash) => {
 module.exports = {
     getFilesRecursive,
     createDirectoryRecursive,
+    isFileExists,
     saveHash,
     loadHash,
     getHash

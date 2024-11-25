@@ -1,7 +1,7 @@
 {
     "name": "texturepackerify",
     "author": "Oleksii Salazkin",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Tool to pack textures into atlases",
     "keywords": [
         "texture",

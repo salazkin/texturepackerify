@@ -29,7 +29,7 @@ let currentImgPath = null;
 module.exports = async (packConfig) => {
     hash = packConfig.hash;
     defaultAtlasConfig = packConfig.defaultAtlasConfig;
-    scales = packConfig.scales ?? [1];
+    scales = packConfig.scales;
     atlasDir = packConfig.atlasDir;
     tempDir = packConfig.tempDir;
     outputDir = packConfig.outputDir;
@@ -262,7 +262,7 @@ const getTempImgName = (id, suffix) => {
 
 const getOutputAtlasName = () => {
     let textureId = atlasDir.split(path.sep).filter(Boolean).pop();
-    return scales.length > 1 ? `${textureId}@${currentScale}x` : textureId;
+    return (scales.length === 1 && scales[0] === 1) ? textureId : `${textureId}@${currentScale}x`;
 };
 const getNewPacker = () => {
     return new MaxRectsPacker(4096, 4096, currentAtlasConfig.extraSpace, { smart: true, pot: currentAtlasConfig.pot, square: currentAtlasConfig.square, border: currentAtlasConfig.border });
