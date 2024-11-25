@@ -1,107 +1,77 @@
 "use strict";
 
-const fs = require("fs");
+const fs = require("fs/promises");
+const path = require("path");
 const md5File = require('md5-file');
 const naturalCompare = require('./natural-compare');
-const tmpdir = require('os').tmpdir();
 
-const getTempFolderPath = () => {
-    return tmpdir + "/texturepackerify";
-};
-
-const clearTempFolderIfOversized = () => {
-    const path = getTempFolderPath();
-    if (fs.existsSync(path)) {
-        let size = 0;
-        fs.readdirSync(path).forEach((file) => {
-            size += fs.statSync(path + "/" + file).size;
-        });
-        if (size > 100 * 1024 * 1024) {
-            clearTempFolder();
-        }
-    }
-};
-
-const clearTempFolder = () => {
-    const path = getTempFolderPath();
-    deleteFolderRecursive(path);
-};
-
-const deleteFolderRecursive = (path) => {
-    if (fs.existsSync(path)) {
-        fs.readdirSync(path).forEach((file) => {
-            const currentPath = path + "/" + file;
-            if (fs.lstatSync(currentPath).isDirectory()) {
-                deleteFolderRecursive(currentPath);
-            } else {
-                fs.unlinkSync(currentPath);
-            }
-        });
-        fs.rmdirSync(path);
-    }
-};
-
-const getFilesRecursive = (src, prependPath = true) => {
+const getFilesRecursive = async (dir, prependPath = true) => {
     const allFiles = [];
-    const parseDir = (path) => {
-        const files = fs.readdirSync(path);
-        files.forEach(file => {
-            const filePath = path + file;
-            if (fs.lstatSync(filePath).isDirectory()) {
-                parseDir(filePath + "/");
+    const parseDir = async (dirPath) => {
+        const files = await fs.readdir(dirPath);
+        for (const file of files) {
+            const filePath = path.join(dirPath, file);
+            const stats = await fs.lstat(filePath);
+            if (stats.isDirectory()) {
+                await parseDir(filePath);
             } else {
                 allFiles.push(filePath);
             }
-        });
+        }
     };
-    parseDir(src);
-    return prependPath ? allFiles : allFiles.map(file => file.substring(src.length, file.length));
+    const normalizedPath = path.normalize(dir);
+    await parseDir(normalizedPath);
+
+    const prependNormalizedPath = normalizedPath.endsWith(path.sep) ? normalizedPath : normalizedPath + path.sep;
+    return prependPath ? allFiles : allFiles.map(file => file.substring(prependNormalizedPath.length, file.length));
 };
 
-
-const loadHash = (assetsUrl, cb) => {
-    let hashData = {};
-    if (fs.existsSync(assetsUrl + "hash.json")) {
-        fs.readFile(assetsUrl + "hash.json", "utf-8", function (err, data) {
-            hashData = JSON.parse(data);
-            cb(hashData);
-        });
-    } else {
-        cb(hashData);
+const createDirectoryRecursive = async (dir) => {
+    try {
+        await fs.access(dir);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            await fs.mkdir(dir, { recursive: true });
+        } else {
+            throw err;
+        }
     }
 };
 
-const getHash = (list, cb) => {
-    const files = JSON.parse(JSON.stringify(list));
-    const hashData = {};
-    const next = function () {
-        if (files.length) {
-            const id = files.shift();
-            md5File(id, (err, hash) => {
-                hashData[id] = hash;
-                next();
-            });
-        } else {
-            cb(hashData);
-        }
-    };
-    next();
+const loadHash = async (hashPath) => {
+    let hashData = {};
+    try {
+        const data = await fs.readFile(hashPath, "utf-8");
+        hashData = JSON.parse(data);
+    } catch (err) {
+        //returning empty hash;
+    }
+    return hashData;
 };
 
-const saveHash = (assetsUrl, hash, cb) => {
-    fs.writeFile(assetsUrl + "hash.json", JSON.stringify(hash, Object.keys(hash).sort(naturalCompare)), () => {
-        md5File(assetsUrl + "hash.json", () => {
-            cb();
-        });
-    });
+const getHash = async (list) => {
+    const hashData = {};
+    const files = [...list];
+    const next = async () => {
+        if (files.length) {
+            const id = files.shift();
+            const hash = await md5File(id);
+            hashData[id] = hash;
+            await next();
+        }
+        return hashData;
+    };
+    await next();
+    return hashData;
+};
+
+const saveHash = async (hashPath, hash) => {
+    await fs.writeFile(hashPath, JSON.stringify(hash, Object.keys(hash).sort(naturalCompare)));
 };
 
 module.exports = {
-    clearTempFolderIfOversized,
-    clearTempFolder,
-    deleteFolderRecursive,
-    getTempFolderPath,
     getFilesRecursive,
+    createDirectoryRecursive,
     saveHash,
     loadHash,
     getHash

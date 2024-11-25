@@ -1,21 +1,36 @@
-"use strict";
-
-const COLOR = {
-    BLACK: "\x1b[30m",
-    RED: "\x1b[31m",
-    GREEN: "\x1b[32m",
-    YELLOW: "\x1b[33m",
-    BLUE: "\x1b[34m",
-    MAGENTA: "\x1b[35m",
-    CYAN: "\x1b[36m",
-    WHITE: "\x1b[37m"
+const colors = {
+    black: '\x1b[30m',
+    red: '\x1b[31m',
+    green: '\x1b[32m',
+    yellow: '\x1b[33m',
+    blue: '\x1b[34m',
+    magenta: '\x1b[35m',
+    cyan: '\x1b[36m',
+    white: '\x1b[37m',
+    reset: '\x1b[0m'
 };
 
-const trace = (prefix, str, color) => {
-    console.log(`${prefix ? prefix + " " : ""}${color || ""}${str}\x1b[0m`);
+const color = (str, color) => {
+    const colorCode = colors[color?.toLowerCase()] || colors.reset;
+    return `${colorCode}${str}${colors.reset}`;
+};
+
+const bold = (str) => {
+    return `\x1b[1m${str}\x1b[22m`;
+};
+
+const trace = (...args) => {
+    console.log(...args);
+};
+
+const clearLastLine = () => {
+    process.stdout.write('\x1b[1A');
+    process.stdout.write('\x1b[2K');
 };
 
 module.exports = {
+    color,
+    bold,
     trace,
-    COLOR
+    clearLastLine
 };

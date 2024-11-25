@@ -34,6 +34,7 @@ const parseSequenceString = (str) => {
             break;
         }
     }
+
     if (numArr.length > 0) {
         out.suffix = numArr.join("");
         out.prefix = name.substring(0, name.length - out.suffix.length);

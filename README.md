@@ -1,103 +1,95 @@
-# TexturePackerify
-Command-line Texture Packer and Extractor.
+## TexturePackerify
+TexturePackerify is a free, lightweight alternative to TexturePacker, built for seamless integration into your game asset build pipeline.
 
 ## Setup
-- Install [Node.js](https://nodejs.org/) 
-- Install [ImageMagick](https://www.imagemagick.org/) (check "**Install legacy utilities**" during installation.)
-- Navigate to your project root and run:
+Install the package via npm:
 ```sh
 $ npm install texturepackerify
 ```
 
 ## Build Atlases
-Place images inside folders. Each folder will be packed to atlas:
+
+### Step 1: Organize Your Images
+Place your images into folders. Each folder will be packed into its own atlas. For example:
+
 ```
-src
-├── atlas1
-│  ├── img0.png
-│  ├── img1.png
-│  ├── ...
-├── atlas2
-│  ├── img12.png
-│  ├── img13.png
-│  ├── ...
+atlases/
+├── atlas1/
+│   ├── img0.png
+│   ├── img1.png
+│   ├── ...
+├── atlas2/
+│   ├── img12.png
+│   ├── img13.png
+│   ├── ...
 ```
 
-Create `pack.js`:
+### Step 2: Create the Packing Script
+Write a `pack.js` file to configure and run the packing process:
+
 ```javascript
 const texturepackerify = require("texturepackerify");
-const config = {
-    url: "./src/", //path to atlases. Default: './'
-    hashUrl: "./src/", //where to store 'hash.json'. Atlases path will be used as default
-    scales: [1, 0.5] //output scales. Default: [1]
-    force: false //force rebuild all atlases. By default packed atlases will be skipped
-    defaultAtlasConfig: {
-        //Override default atlas config: extraSpace, jpeg, extrude, pot, square, colorDepth, animations, spriteExtensions
+const packAtlases = async () => {
+  await texturepackerify.pack({
+    inputDir: "./atlases",
+    defaultAtlasConfig: { // Override default settings (e.g., extraSpace, jpeg, pot).
+      pot: false
     }
+  });
 }
-texturepackerify.pack(config, () => {
-    console.log("done!");
-});
+packAtlases();
 ```
-Run:
+
+### Step 3: Run the Script
+Run the script to pack your images into atlases:
+
 ```sh
 $ node pack.js
 ```
 
-Output:
-```
-src
-├──...
-│  atlas1.png
-│  atlas1.json
-│  atlas2.png
-│  atlas2.json
-│  hash.json
-│  ...
-```
+## Pack Config
+The `pack` function accepts a `config` object with the following parameters:
+
+### Configuration Parameters (Compact)
+
+- **`inputDir`** (`string`): Directory containing input atlas folders. Default: `"./"`.
+- **`outputDir`** (`string`): Directory for the generated output. Default: Same as `inputDir`.
+- **`hashPath`** (`string`): Path to the hash file for caching. Default: `"./.texturepackerify/hash.json"`.
+- **`force`** (`boolean`): Specifies whether to force a rebuild of the atlases. Default: `false`.
+- **`scales`** (`number[]`): An array of scale factors for generating mipmaps. Default: `[1]`.
+- **`enableLogs`** (`boolean`): Enables or disables console logs. Default: `true`.
+- **`onProgress`** (`Function`): Callback for progress updates. Default: *(none)*.
+- **`defaultAtlasConfig`** (`Object`): Customizes default atlas settings. Default: `{}`.
 
 ## Atlas Config
-Each atlas can hold `config.json` with parameters:
 
-- `"extraSpace"` - space between texture frames. Default - `2`
-- `"border"` - texture border. Default - `0`
-- `"jpeg"` - output to jpeg. Default - `false`
-- `"extrude"` - add extra pixels in bounds. Default - `false`
-- `"pot"` - atlas size fixed to power of two. Default - `true`
-- `"square"` - atlas size fixed to square. Default - `false`
-- `"colorDepth"` - color depth for texture. Default - `8`
-- `"animations"` - parse animations. Default - `false`
-- `"spriteExtensions"` - add extension to frame name. Default - `true`
+You can customize atlas generation by using a `config.json` file. This file can be:
 
-## Example
-Place `config.json` in `atlas` folder:
-```
-src
-├── atlas1
-│  ├── img0.png
-│  ├── ...
-│  ├── config.json
-```
+1. Placed inside each atlas folder to define **individual configurations** for that specific atlas.
+2. Defined in the `pack.js` configuration (`defaultAtlasConfig`) to **override default properties** globally for all atlases.
 
-`config.json`:
-```javascript
+Below are the available parameters:
+
+### Configuration Parameters (Compact)
+
+- **`extraSpace`** (`number`): Space (in pixels) between texture frames. Default: `2`.
+- **`border`** (`number`): Border (in pixels) around the atlas texture. Default: `0`.
+- **`jpeg`** (`boolean`): Output the atlas as a JPEG file. Default: `false`.
+- **`extrude`** (`boolean` or `array`): Expand image borders by one pixel in all directions. Accepts `true`, `false`, or an array of IDs. Default: `false`.
+- **`pot`** (`boolean`): Force atlas size to be a power of two (e.g., 256x256). Default: `true`.
+- **`square`** (`boolean`): Force atlas size to be square. Default: `false`.
+- **`animations`** (`boolean`): Enable animation parsing. Default: `false`.
+- **`alphaThreshold`** (`number`): Alpha threshold for trimming transparent areas. Default: `1`.
+- **`spriteExtensions`** (`boolean`): Append extensions (e.g., `.png`) to sprite frame names. Default: `true`.
+
+### Example `config.json` for Individual Atlases
+Place a `config.json` file in the desired atlas folder (e.g., `atlases/atlas1/config.json`):
+
+```json
 {
-    "extraSpace": 0,
-    "jpg": true,
-    "extrude": true,
-    "square": true,
-    "colorDepth": 8
+  "extraSpace": 4,
+  "border": 1,
+  "jpeg": true,
+  "pot": false
 }
-```
-
-## Extract
-TexturePackerify can extract atlases. Place `atlas.png` and `atlas.json` to `src` folder.
-Create `extract.js`:
-```javascript
-const texturepackerify = require("texturepackerify");
-texturepackerify.extract({url:"./src/"}, ()=>{console.log("done!")});
-```
-Run:
-```sh
-$ node extract.js
 ```

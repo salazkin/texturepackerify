@@ -1,16 +1,19 @@
 {
     "name": "texturepackerify",
-    "author": "Alexey Salazkin",
-    "version": "0.1.7",
-    "description": "Command-line Texture Packer and Extractor.",
-    "keywords": ["spritesheet", "texture", "atlas", "packer", "extractor"],
-    "homepage":"https://github.com/salazkin/texturepackerify",
+    "author": "Oleksii Salazkin",
+    "version": "1.0.0",
+    "description": "Tool to pack textures into atlases",
+    "keywords": [
+        "spritesheet",
+        "texture",
+        "atlas",
+        "packer"
+    ],
+    "homepage": "https://github.com/salazkin/texturepackerify",
     "dependencies": {
-        "maxrects-packer": "^2.0.0",
-        "md5-file": "^3.2.3"
+        "maxrects-packer": "^2.7.3",
+        "md5-file": "^5.0.0",
+        "sharp": "^0.33.5"
     },
-    "license": "MIT",
-    "devDependencies": {
-        "eslint": "^7.21.0"
-    }
+    "license": "MIT"
 }
