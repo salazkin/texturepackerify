@@ -32,7 +32,7 @@ const texturepackerify = require("texturepackerify");
 const packAtlases = async () => {
   await texturepackerify.pack({
     inputDir: "./atlases",
-    defaultAtlasConfig: { // Override default settings (e.g., extraSpace, jpeg, pot).
+    defaultAtlasConfig: { // Override default settings (e.g., extraSpace, jpg, pot).
       pot: false
     }
   });
@@ -74,7 +74,7 @@ Below are the available parameters:
 
 - **`extraSpace`** (`number`): Space (in pixels) between texture frames. Default: `2`.
 - **`border`** (`number`): Border (in pixels) around the atlas texture. Default: `0`.
-- **`jpeg`** (`boolean`): Output the atlas as a JPEG file. Default: `false`.
+- **`jpg`** (`boolean`): Output the atlas as a JPEG file. Default: `false`.
 - **`extrude`** (`boolean` or `array`): Expand image borders by one pixel in all directions. Accepts `true`, `false`, or an array of IDs. Default: `false`.
 - **`pot`** (`boolean`): Force atlas size to be a power of two (e.g., 256x256). Default: `true`.
 - **`square`** (`boolean`): Force atlas size to be square. Default: `false`.
@@ -89,7 +89,7 @@ Place a `config.json` file in the desired atlas folder (e.g., `atlases/atlas1/co
 {
   "extraSpace": 4,
   "border": 1,
-  "jpeg": true,
+  "jpg": true,
   "pot": false
 }
 ```

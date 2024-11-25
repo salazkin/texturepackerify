@@ -21,11 +21,11 @@ const trimImage = async (inputPath, outputPath, threshold) => {
         .toFile(outputPath);
 };
 
-const getTrimInfo = async (imagePath) => {
+const getTrimInfo = async (imagePath, threshold) => {
     const image = sharp(imagePath);
     const metadata = await image.metadata();
     const { width, height } = metadata;
-    const trimmedImage = await image.trim().toBuffer({ resolveWithObject: true });
+    const trimmedImage = await image.trim({ threshold }).toBuffer({ resolveWithObject: true });
     const { info: trimInfo } = trimmedImage;
     const hash = await md5File(imagePath);
     return {

@@ -88,7 +88,7 @@ const trimImg = async () => {
         ? path.join(atlasDir, currentImgPath)
         : path.join(tempDir, getTempImgName(currentImgPath, "scale"));
 
-    const data = await imageHelper.getTrimInfo(imgPath);
+    const data = await imageHelper.getTrimInfo(imgPath, currentAtlasConfig.alphaThreshold);
     const block = { id: currentImgPath };
     const extrudeSpace = isExtrude(currentImgPath) ? 2 : 0;
 
@@ -301,7 +301,6 @@ const fitBlocks = () => {
             blocksWithoutDuplicates.forEach(fitBlock => {
                 if (fitBlock.hash === block.hash) {
                     block.fit = fitBlock.fit;
-                    block.isDuplicate = true;
                     duplicates.push(block.id);
                     return true;
                 }

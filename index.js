@@ -47,7 +47,7 @@ let defaultAtlasConfig = {
  * @param {Object} [config.defaultAtlasConfig] - Overrides for the default configuration of atlas settings.
  * @param {number} [config.defaultAtlasConfig.extraSpace=2] - Space (in pixels) between texture frames.
  * @param {number} [config.defaultAtlasConfig.border=0] - Border (in pixels) around the atlas texture.
- * @param {boolean} [config.defaultAtlasConfig.jpeg=false] - Set to `true` to output the atlas as a JPEG file.
+ * @param {boolean} [config.defaultAtlasConfig.jpg=false] - Set to `true` to output the atlas as a JPEG file.
  * @param {boolean|Array} [config.defaultAtlasConfig.extrude=false] - Expand image borders by one pixel in all directions. Accepts `true`, `false`, or an array of IDs.
  * @param {boolean} [config.defaultAtlasConfig.pot=true] - Force the atlas size to be a power of two (e.g., 256x256, 512x512).
  * @param {boolean} [config.defaultAtlasConfig.square=false] - Force the atlas size to be square.
