@@ -18,7 +18,7 @@ let hashPath = "";
 let scales = null;
 let enableLogs = true;
 let onProgressCallback = null;
-
+let startTime;
 let defaultAtlasConfig = {
     extraSpace: 2,
     border: 0,
@@ -77,6 +77,7 @@ const packAtlases = async (config = {}) => {
     enableLogs = config.enableLogs ?? true;
     onProgressCallback = config.onProgress;
     defaultAtlasConfig = Object.assign({}, defaultAtlasConfig, config.defaultAtlasConfig);
+    startTime = performance.now();
 
     await filesHelper.createDirectoryRecursive(tempDir);
     await filesHelper.createDirectoryRecursive(outputDir);
@@ -98,9 +99,44 @@ const packAtlases = async (config = {}) => {
 
     onProgress(0, packList.length);
     await getHash();
-    await promiseUtils.sequence(packList.map((atlasDir, i) => {
+
+    await promiseUtils.sequence(packList.map((folderName, i) => {
         return async () => {
-            await buildAtlas(path.join(inputDir, atlasDir));
+            const atlasDir = path.join(inputDir, folderName);
+            const files = await filesHelper.getFilesRecursive(atlasDir, false);
+            const pngAndJsonFiles = files.filter(value => value.endsWith(".png") || value.endsWith(".json"));
+            let skip = true;
+
+            if (pngAndJsonFiles.length > 0) {
+                pngAndJsonFiles.forEach(file => {
+                    let fileId = path.join(atlasDir, file);
+                    if (oldHash[fileId] === undefined || oldHash[fileId] !== newHash[fileId]) {
+                        skip = false;
+                        oldHash[fileId] = newHash[fileId];
+                    }
+                });
+
+                if (force) {
+                    skip = false;
+                }
+
+                const atlasExists = await isAtlasExists(atlasDir);
+                if (!atlasExists) {
+                    skip = false;
+                }
+            }
+            for (let hashId in oldHash) {
+                if (hashId.indexOf(atlasDir) > -1 && newHash[hashId] === undefined) {
+                    oldHash[hashId] = undefined;
+                    skip = false;
+                }
+            }
+
+            if (!skip) {
+                await pack({ atlasDir, hash: newHash, scales, defaultAtlasConfig, tempDir, outputDir });
+                await filesHelper.saveHash(hashPath, oldHash);
+            }
+
             onProgress(i + 1, packList.length);
         };
     }));
@@ -114,8 +150,10 @@ const onProgress = (finished, total) => {
         if (finished > 0) {
             log.clearLastLine();
         }
-        const progress = finished === total ? log.color("[complete]", "green") : `[${Math.floor(finished / total * 100)}%]`;
-        log.trace("packing", log.bold(`${inputDir}`), log.bold(progress));
+        const isFinished = finished === total;
+        const time = isFinished ? `in ${Math.round(performance.now() - startTime)} ms` : "";
+        const progress = isFinished ? log.color("[complete]", "green") : `[${Math.floor(finished / total * 100)}%]`;
+        log.trace("packing", log.bold(`${inputDir}`), log.bold(progress), time);
     }
 };
 
@@ -123,42 +161,6 @@ const getHash = async () => {
     const list = await getFiles();
     newHash = await filesHelper.getHash(list);
     oldHash = await filesHelper.loadHash(hashPath);
-};
-
-const buildAtlas = async (atlasDir) => {
-    const files = await filesHelper.getFilesRecursive(atlasDir, false);
-    const pngAndJsonFiles = files.filter(value => value.endsWith(".png") || value.endsWith(".json"));
-    let skip = true;
-
-    if (pngAndJsonFiles.length > 0) {
-        pngAndJsonFiles.forEach(file => {
-            let fileId = path.join(atlasDir, file);
-            if (oldHash[fileId] === undefined || oldHash[fileId] !== newHash[fileId]) {
-                skip = false;
-                oldHash[fileId] = newHash[fileId];
-            }
-        });
-
-        if (force) {
-            skip = false;
-        }
-
-        const atlasExists = await isAtlasExists(atlasDir);
-        if (!atlasExists) {
-            skip = false;
-        }
-    }
-    for (let hashId in oldHash) {
-        if (hashId.indexOf(atlasDir) > -1 && newHash[hashId] === undefined) {
-            oldHash[hashId] = undefined;
-            skip = false;
-        }
-    }
-
-    if (!skip) {
-        await pack({ atlasDir, hash: newHash, scales, defaultAtlasConfig, tempDir, outputDir });
-        await filesHelper.saveHash(hashPath, oldHash);
-    }
 };
 
 const isAtlasExists = async (atlasPath) => {

@@ -1,17 +1,19 @@
 {
     "name": "texturepackerify",
     "author": "Oleksii Salazkin",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Tool to pack textures into atlases",
     "keywords": [
         "texture",
         "packer",
         "texturepacker",
+        "texturepackerify",
         "texture-packer",
         "sprites",
         "atlas",
-        "sprite",
-        "2d"
+        "textures",
+        "build",
+        "pipeline"
     ],
     "homepage": "https://github.com/salazkin/texturepackerify",
     "dependencies": {

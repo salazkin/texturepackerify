@@ -3,61 +3,99 @@
 const fs = require("fs/promises");
 const path = require("path");
 const filesHelper = require('./utils/files-helper');
-const stringUtils = require('./utils/string-utils');
-const naturalCompare = require('./utils/natural-compare');
 const imageHelper = require('./utils/image-helper');
 const promiseUtils = require('./utils/promise-utils');
+const md5File = require('md5-file');
+const templates = require('./templates/templates');
+
 const MaxRectsPacker = require("maxrects-packer").MaxRectsPacker;
 
-let packer = null;
-
-let atlasDir = null;
-let tempDir = null;
-let outputDir = null;
-let blocks = [];
-let files = [];
-let atlas = null;
-let duplicates = [];
-let hash = {};
-let scales = null;
-let defaultAtlasConfig = null;
-
-let currentAtlasConfig = null;
-let currentScale = null;
-let currentImgPath = null;
-
 module.exports = async (packConfig) => {
-    hash = packConfig.hash;
-    defaultAtlasConfig = packConfig.defaultAtlasConfig;
-    scales = packConfig.scales;
-    atlasDir = packConfig.atlasDir;
-    tempDir = packConfig.tempDir;
-    outputDir = packConfig.outputDir;
-    files = (await filesHelper.getFilesRecursive(atlasDir, false))
+    const defaultAtlasConfig = packConfig.defaultAtlasConfig;
+    const scales = packConfig.scales;
+    const atlasDir = packConfig.atlasDir;
+    const tempDir = packConfig.tempDir;
+    const hash = packConfig.hash;
+    const files = (await filesHelper.getFilesRecursive(atlasDir, false))
         .filter(value => value.endsWith(".png"));
-
-    const atlasConfig = await getAtlasConfig();
-    currentAtlasConfig = Object.assign({}, defaultAtlasConfig, atlasConfig);
+    const outputDir = packConfig.outputDir;
+    const atlasConfig = await getAtlasConfig(atlasDir);
+    const currentAtlasConfig = Object.assign({}, defaultAtlasConfig, atlasConfig);
 
     await promiseUtils.sequence(scales.map(scale => {
         return async () => {
-            blocks = [];
-            duplicates = [];
-            currentScale = scale;
-            packer = getNewPacker();
+            const blocks = [];
+
             await promiseUtils.sequence(files.map(file => {
                 return async () => {
-                    currentImgPath = file;
-                    await scaleImg();
-                    await trimImg();
+
+                    const tempImgHash = packConfig.hash[path.join(atlasDir, file)];
+
+                    const scaleImgPath = path.join(atlasDir, file);
+                    const scaleOutputPath = path.join(tempDir, getTempImgName(tempImgHash, scale, "scale"));
+
+                    if (scale !== 1) {
+                        try {
+                            await fs.access(scaleOutputPath);
+                        } catch {
+                            await imageHelper.scaleImage(scaleImgPath, scaleOutputPath, scale);
+                        }
+                    }
+
+                    const trimImgPath = scale === 1 ? scaleImgPath : scaleOutputPath;
+                    const trimImgInfo = await imageHelper.getTrimInfo(trimImgPath, currentAtlasConfig.alphaThreshold);
+
+                    const trim = (trimImgInfo.imageWidth !== trimImgInfo.trim.w || trimImgInfo.imageHeight !== trimImgInfo.trim.h);
+
+                    if (trim) {
+                        const trimOutputPath = path.join(tempDir, getTempImgName(tempImgHash, scale, "trim"));
+                        try {
+                            await fs.access(trimOutputPath);
+                        } catch {
+                            await imageHelper.trimImage(trimImgPath, trimOutputPath, currentAtlasConfig.alphaThreshold);
+                        }
+                    }
+
+                    const trimImgHash = await md5File(trimImgPath);
+                    const extrude = isExtrude(currentAtlasConfig, file) ? 1 : 0;
+
+                    blocks.push({
+                        id: file,
+                        frame: { w: trimImgInfo.trim.w, h: trimImgInfo.trim.h },
+                        sprite: { x: trimImgInfo.trim.x, y: trimImgInfo.trim.y, w: trimImgInfo.imageWidth, h: trimImgInfo.imageHeight },
+                        trimmed: trim,
+                        extrude,
+                        hash: trimImgHash
+                    });
                 };
             }));
-            await buildAtlas();
+
+            const { atlasWidth, atlasHeight } = await fitBlocks(currentAtlasConfig, blocks);
+
+            let textureId = atlasDir.split(path.sep).filter(Boolean).pop();
+            const atlasTextureName = (scales.length === 1 && scales[0] === 1) ? textureId : `${textureId}@${scale}x`;
+
+            const atlasData = {
+                atlasDir,
+                atlasWidth,
+                atlasHeight,
+                scale,
+                blocks,
+                atlasTextureName,
+                atlasTextureExtension: currentAtlasConfig.jpg ? ".jpg" : ".png",
+                animations: currentAtlasConfig.animations,
+                spriteExtensions: currentAtlasConfig.spriteExtensions
+            };
+
+            await promiseUtils.parallel([
+                async () => await saveJson(atlasData, outputDir),
+                async () => await saveTexture(atlasData, hash, tempDir, outputDir)
+            ]);
         };
     }));
 };
 
-const getAtlasConfig = async () => {
+const getAtlasConfig = async (atlasDir) => {
     const configPath = path.join(atlasDir, "config.json");
     let configData = {};
 
@@ -70,210 +108,75 @@ const getAtlasConfig = async () => {
     return configData;
 };
 
-const scaleImg = async () => {
-    const name = getTempImgName(currentImgPath, "scale");
-    const outputPath = path.join(tempDir, name);
-    if (currentScale !== 1) {
-        try {
-            await fs.access(outputPath);
-        } catch {
-            await imageHelper.scaleImage(path.join(atlasDir, currentImgPath), outputPath, currentScale);
-        }
-    }
-};
-
-const trimImg = async () => {
-    const name = getTempImgName(currentImgPath, "trim");
-    const imgPath = currentScale === 1
-        ? path.join(atlasDir, currentImgPath)
-        : path.join(tempDir, getTempImgName(currentImgPath, "scale"));
-
-    const data = await imageHelper.getTrimInfo(imgPath, currentAtlasConfig.alphaThreshold);
-    const block = { id: currentImgPath };
-    const extrudeSpace = isExtrude(currentImgPath) ? 2 : 0;
-
-    block.width = data.width + extrudeSpace;
-    block.height = data.height + extrudeSpace;
-    block.x = data.trim.x;
-    block.y = data.trim.y;
-    block.w = data.trim.w + extrudeSpace;
-    block.h = data.trim.h + extrudeSpace;
-    block.hash = data.hash;
-    block.trim = (data.width !== data.trim.w || data.height !== data.trim.h);
-    blocks.push(block);
-
-    const outputPath = path.join(tempDir, name);
-    if (block.trim) {
-        try {
-            await fs.access(outputPath);
-        } catch {
-            await imageHelper.trimImage(imgPath, outputPath, currentAtlasConfig.alphaThreshold);
-        }
-    }
-};
-
-const isExtrude = (id) => {
-    if (currentAtlasConfig.extrude !== undefined) {
-        if (Array.isArray(currentAtlasConfig.extrude)) {
-            return currentAtlasConfig.extrude.indexOf(id) !== -1;
+const isExtrude = (atlasConfig, id) => {
+    if (atlasConfig.extrude !== undefined) {
+        if (Array.isArray(atlasConfig.extrude)) {
+            return atlasConfig.extrude.indexOf(id) !== -1;
         } else {
-            return currentAtlasConfig.extrude;
+            return atlasConfig.extrude;
         }
     }
     return false;
 };
 
-const buildAtlas = async () => {
-    fitBlocks();
-
-    atlas = {
-        frames: {}
-    };
-    for (let i = 0; i < blocks.length; i++) {
-        let block = blocks[i];
-        let extrudeSpace = isExtrude(block.id) ? 1 : 0;
-        atlas.frames[block.id] = {
-            frame: {
-                x: block.fit.x + extrudeSpace,
-                y: block.fit.y + extrudeSpace,
-                w: block.w - (extrudeSpace * 2),
-                h: block.h - (extrudeSpace * 2)
-            },
-            spriteSourceSize: {
-                x: block.x,
-                y: block.y,
-                w: block.w - (extrudeSpace * 2),
-                h: block.h - (extrudeSpace * 2)
-            },
-            sourceSize: {
-                w: block.width - (extrudeSpace * 2),
-                h: block.height - (extrudeSpace * 2)
-            },
-            trimmed: block.trim
-        };
-    }
-
-    if (currentAtlasConfig.animations) {
-        const animations = parseAnimations(Object.keys(atlas.frames));
-        if (Object.keys(animations).length > 0) {
-            atlas.animations = animations;
-        }
-    }
-
-    let atlasWidth = packer.bins[0].width;
-    let atlasHeight = packer.bins[0].height;
-
-    const ext = currentAtlasConfig.jpg ? ".jpg" : ".png";
-
-    atlas.meta = {
-        app: "http://www.texturepacker.com",
-        version: "1.0",
-        image: getOutputAtlasName() + ext,
-        format: "RGBA8888",
-        size: { w: atlasWidth, h: atlasHeight },
-        scale: currentScale
-    };
-    await saveJson();
-    await saveTexture();
+const saveJson = async (atlasData, outputDir) => {
+    const atlasJsonPath = path.join(outputDir, `${atlasData.atlasTextureName}.json`);
+    const atlasTextData = templates.jsonHashTemplate(atlasData);
+    await fs.writeFile(atlasJsonPath, atlasTextData);
 };
 
-const saveJson = async () => {
-    let framesWithoutExtensions = null;
-    if (!currentAtlasConfig.spriteExtensions) {
-        framesWithoutExtensions = {};
-        for (let key in atlas.frames) {
-            framesWithoutExtensions[stringUtils.removeExtension(key)] = atlas.frames[key];
-        }
-    }
+const saveTexture = async (atlasData, hash, tempDir, outputDir) => {
+    const atlasTexturePath = path.join(outputDir, `${atlasData.atlasTextureName}${atlasData.atlasTextureExtension}`);
 
-    let framesStr = stringUtils.orderedStringify(framesWithoutExtensions || atlas.frames);
-    if (framesStr.length > 2) {
-        framesStr = framesStr.substring(1, framesStr.length - 2);
-        framesStr = framesStr.replace(/"frame"/g, `\n\t\t\t"frame"`);
-        framesStr = framesStr.replace(/"sourceSize"/g, `\n\t\t\t"sourceSize"`);
-        framesStr = framesStr.replace(/"spriteSourceSize"/g, `\n\t\t\t"spriteSourceSize"`);
-        framesStr = framesStr.replace(/"trimmed"/g, `\n\t\t\t"trimmed"`);
-        framesStr = framesStr.replace(/true},/g, `true\n\t\t},\n\t\t`);
-        framesStr = framesStr.replace(/false},/g, `false\n\t\t},\n\t\t`);
-    }
-
-    let animationsStr = atlas.animations ? stringUtils.orderedStringify(atlas.animations) : "";
-    if (animationsStr.length > 2) {
-        animationsStr = animationsStr.substring(1, animationsStr.length - 1);
-        animationsStr = animationsStr.replace(/],/g, `],\n\t\t`);
-        animationsStr = `\n\t"animations":{\n\t\t${animationsStr}\n\t},`;
-    } else {
-        animationsStr = "";
-    }
-
-    let metaStr = JSON.stringify(atlas.meta);
-    metaStr = metaStr.substring(1, metaStr.length - 1);
-
-    for (const metaId in atlas.meta) {
-        metaStr = metaStr.replace(new RegExp(`"${metaId}"`, "g"), `\n\t\t"${metaId}"`);
-    }
-    let atlasStr = `{\n\t"frames":{\n\t\t${framesStr}\n\t\t}\n\t},${animationsStr}\n\t"meta":{${metaStr}\n\t}\n}`;
-    atlasStr = atlasStr.replace(/\t/g, `  `);
-
-    const atlasJsonPath = path.join(outputDir, `${getOutputAtlasName()}.json`);
-    await fs.writeFile(atlasJsonPath, atlasStr);
-};
-
-const saveTexture = async () => {
     const blocksArr = [];
-    for (const id in atlas.frames) {
-        if (!duplicates.includes(id)) {
-            const frame = atlas.frames[id].frame;
-            const img = getImageSource(id, atlas.frames[id].trimmed);
-            if (isExtrude(id)) {
-                blocksArr.push(...addExtrudeData(img, frame));
+    atlasData.blocks.forEach(block => {
+        if (!block.duplicate) {
+            const { scale } = atlasData;
+
+            const tempImgHash = hash[path.join(atlasData.atlasDir, block.id)];
+
+            const imagePath = (scale === 1) ?
+                block.trimmed ? path.join(tempDir, getTempImgName(tempImgHash, scale, "trim")) : path.join(atlasData.atlasDir, block.id) :
+                block.trimmed ? path.join(tempDir, getTempImgName(tempImgHash, scale, "trim")) : path.join(tempDir, getTempImgName(tempImgHash, scale, "scale"));
+
+            if (block.extrude > 0) {
+                blocksArr.push(...addExtrudeData(imagePath, block));
             }
-            blocksArr.push({ imagePath: img, top: frame.y, left: frame.x });
+            blocksArr.push({ imagePath, left: block.frame.x, top: block.frame.y });
         }
-    }
-    const outputPath = path.join(outputDir, `${getOutputAtlasName()}${currentAtlasConfig.jpg ? ".jpg" : ".png"}`);
-    await imageHelper.createAtlas(outputPath, atlas.meta.size.w, atlas.meta.size.h, blocksArr);
+    });
+
+    await imageHelper.createAtlas(atlasTexturePath, atlasData.atlasWidth, atlasData.atlasHeight, blocksArr);
 };
 
-const addExtrudeData = (imagePath, frame) => {
+const addExtrudeData = (imagePath, block) => {
+    const { frame, extrude } = block;
     return [
-        { imagePath, top: frame.y - 1, left: frame.x - 1 },
-        { imagePath, top: frame.y - 1, left: frame.x + 1 },
-        { imagePath, top: frame.y + 1, left: frame.x - 1 },
-        { imagePath, top: frame.y + 1, left: frame.x + 1 },
-        { imagePath, top: frame.y, left: frame.x + 1 },
-        { imagePath, top: frame.y, left: frame.x - 1 },
-        { imagePath, top: frame.y - 1, left: frame.x },
-        { imagePath, top: frame.y + 1, left: frame.x }
+        { imagePath, top: frame.y - extrude, left: frame.x - extrude },
+        { imagePath, top: frame.y - extrude, left: frame.x + extrude },
+        { imagePath, top: frame.y + extrude, left: frame.x - extrude },
+        { imagePath, top: frame.y + extrude, left: frame.x + extrude },
+        { imagePath, top: frame.y, left: frame.x + extrude },
+        { imagePath, top: frame.y, left: frame.x - extrude },
+        { imagePath, top: frame.y - extrude, left: frame.x },
+        { imagePath, top: frame.y + extrude, left: frame.x }
     ];
 };
 
-const getImageSource = (id, trimmed) => {
-    if (currentScale === 1) {
-        return trimmed ? path.join(tempDir, getTempImgName(id, "trim")) : path.join(atlasDir, id);
-    } else {
-        return trimmed ? path.join(tempDir, getTempImgName(id, "trim")) : path.join(tempDir, getTempImgName(id, "scale"));
-    }
+const getTempImgName = (tempHashKey, scale, suffix) => {
+    return `${tempHashKey}@${scale}x_${suffix}.png`;
 };
 
-const getTempImgName = (id, suffix) => {
-    return `${hash[path.join(atlasDir, id)]}@${currentScale}x_${suffix}.png`;
-};
+const fitBlocks = (atlasConfig, blocks) => {
+    const packer = new MaxRectsPacker(4096, 4096, atlasConfig.extraSpace, { smart: true, pot: atlasConfig.pot, square: atlasConfig.square, border: atlasConfig.border });
 
-const getOutputAtlasName = () => {
-    let textureId = atlasDir.split(path.sep).filter(Boolean).pop();
-    return (scales.length === 1 && scales[0] === 1) ? textureId : `${textureId}@${currentScale}x`;
-};
-const getNewPacker = () => {
-    return new MaxRectsPacker(4096, 4096, currentAtlasConfig.extraSpace, { smart: true, pot: currentAtlasConfig.pot, square: currentAtlasConfig.square, border: currentAtlasConfig.border });
-};
-
-const fitBlocks = () => {
     blocks.sort((a, b) => { return Math.max(b.w, b.h) - Math.max(a.w, a.h); });
     blocks.sort((a, b) => { Math.min(b.w, b.h) - Math.min(a.w, a.h); });
     blocks.sort((a, b) => { return b.h - a.h; });
     blocks.sort((a, b) => { return b.w - a.w; });
+
     const uniq = new Set();
+
     const blocksWithoutDuplicates = blocks.filter(block => {
         if (!uniq.has(block.hash)) {
             uniq.add(block.hash);
@@ -281,55 +184,31 @@ const fitBlocks = () => {
         }
     });
 
-    const fullNotation = blocksWithoutDuplicates.map(block => {
-        const newBlock = {};
-        newBlock.width = block.w;
-        newBlock.height = block.h;
-        newBlock.data = block.id;
-        return newBlock;
-    });
+    packer.addArray(blocksWithoutDuplicates.map(block => {
+        return {
+            width: block.frame.w + block.extrude * 2,
+            height: block.frame.h + block.extrude * 2,
+            data: block.id
+        };
+    }));
 
-    packer.addArray(fullNotation);
-
-    blocksWithoutDuplicates.forEach(e => {
-        const fitted = packer.bins[0].rects.find(packed => packed.data == e.id);
-        e.fit = { x: fitted.x, y: fitted.y };
+    blocksWithoutDuplicates.forEach(block => {
+        const frame = packer.bins[0].rects.find(packed => packed.data == block.id);
+        block.frame.x = block.extrude + frame.x;
+        block.frame.y = block.extrude + frame.y;
+        block.rotated = false;
     });
 
     blocks.forEach(block => {
-        if (!block.fit) {
-            blocksWithoutDuplicates.forEach(fitBlock => {
-                if (fitBlock.hash === block.hash) {
-                    block.fit = fitBlock.fit;
-                    duplicates.push(block.id);
-                    return true;
-                }
-            });
+        if (!blocksWithoutDuplicates.includes(block)) {
+            const updatedBlock = blocksWithoutDuplicates.find(el => el.hash === block.hash);
+            block.frame.x = updatedBlock.frame.x;
+            block.frame.y = updatedBlock.frame.y;
+            block.rotated = updatedBlock.rotated;
+            block.duplicate = true;
         }
     });
+
+    return { blocks, atlasWidth: packer.bins[0].width, atlasHeight: packer.bins[0].height };
 };
-
-const parseAnimations = (keys) => {
-    const anims = {};
-    const sequenceArr = [...keys].sort(naturalCompare);
-
-    const trimLastChars = "/_-";
-    for (let i = 0; i < sequenceArr.length; i++) {
-        const split = stringUtils.parseSequenceString(sequenceArr[i]);
-
-        let id = split.prefix;
-        if (id.length > 0 && trimLastChars.indexOf(id[id.length - 1]) !== -1) {
-            id = id.substring(0, id.length - 1);
-        }
-
-        if (id.length > 0 && split.suffix && i < sequenceArr.length - 1 && split.prefix + split.suffixIncremented + split.extension === sequenceArr[i + 1]) {
-            if (anims[id] === undefined) {
-                anims[id] = [sequenceArr[i]];
-            }
-            anims[id].push(sequenceArr[i + 1]);
-        }
-    }
-    return anims;
-};
-
 

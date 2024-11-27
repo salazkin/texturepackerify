@@ -1,7 +1,6 @@
 "use strict";
 
 const sharp = require('sharp');
-const md5File = require('md5-file');
 
 const scaleImage = async (inputPath, outputPath, scale) => {
     const { width, height } = await sharp(inputPath).metadata();
@@ -27,17 +26,16 @@ const getTrimInfo = async (imagePath, threshold) => {
     const { width, height } = metadata;
     const trimmedImage = await image.trim({ threshold }).toBuffer({ resolveWithObject: true });
     const { info: trimInfo } = trimmedImage;
-    const hash = await md5File(imagePath);
+
     return {
-        width,
-        height,
+        imageWidth: width,
+        imageHeight: height,
         trim: {
-            x: Math.abs(trimInfo.trimOffsetLeft),
-            y: Math.abs(trimInfo.trimOffsetTop),
+            x: trimInfo.trimOffsetLeft,
+            y: trimInfo.trimOffsetTop,
             w: trimInfo.width,
             h: trimInfo.height
-        },
-        hash
+        }
     };
 };
 
