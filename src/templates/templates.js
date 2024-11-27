@@ -11,22 +11,23 @@ const jsonHashTemplate = (data) => {
         const frameId = data.spriteExtensions ? block.id : stringUtils.removeExtension(block.id);
         atlas.frames[frameId] = {
             frame: {
-                x: block.frame.x,
-                y: block.frame.y,
-                w: block.frame.w,
-                h: block.frame.h
+                x: block.frameRect.x,
+                y: block.frameRect.y,
+                w: block.frameRect.w,
+                h: block.frameRect.h
             },
             spriteSourceSize: {
-                x: Math.abs(block.sprite.x),
-                y: Math.abs(block.sprite.y),
-                w: block.frame.w,
-                h: block.frame.h
+                x: Math.abs(block.spriteRect.x),
+                y: Math.abs(block.spriteRect.y),
+                w: block.frameRect.w,
+                h: block.frameRect.h
             },
             sourceSize: {
-                w: block.sprite.w,
-                h: block.sprite.h
+                w: block.spriteRect.w,
+                h: block.spriteRect.h
             },
-            trimmed: block.trimmed
+            trimmed: block.trimmed,
+            rotated: block.rotated
         };
     }
 

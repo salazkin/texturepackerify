@@ -28,7 +28,11 @@ let defaultAtlasConfig = {
     pot: true,
     square: false,
     spriteExtensions: true,
-    animations: false
+    animations: false,
+    allowTrim: true,
+    allowRotation: true,
+    maxWidth: 4096,
+    maxHeight: 4096
 };
 
 /**
@@ -38,7 +42,7 @@ let defaultAtlasConfig = {
  * @function
  * @param {Object} config - Pack config.
  * @param {string} [config.inputDir="."] - Directory containing input atlas folders.
- * @param {string} [config.outputDir] -Directory for the generated output. Default: Same as `inputDir`.
+ * @param {string} [config.outputDir] - Directory for the generated output. Default: Same as `inputDir`.
  * @param {string} [config.hashPath=".texturepackerify/hash.json"] - Path to the hash file for caching.
  * @param {boolean} [config.force=false] - Specifies whether to force a rebuild of the atlases.
  * @param {number[]} [config.scales=[1]] - An array of scale factors for generating mipmaps.
@@ -54,6 +58,10 @@ let defaultAtlasConfig = {
  * @param {boolean} [config.defaultAtlasConfig.animations=false] - Enable animation parsing.
  * @param {number} [config.defaultAtlasConfig.alphaThreshold=1] - Alpha threshold value for trimming transparent areas.
  * @param {boolean} [config.defaultAtlasConfig.spriteExtensions=true] - Append extensions (e.g., `.png`) to sprite frame names.
+ * @param {boolean} [config.defaultAtlasConfig.allowRotation=true] - Allows sprite frame rotation.
+ * @param {boolean} [config.defaultAtlasConfig.allowTrim=true] - Enables the trimming of transparent pixels.
+ * @param {number} [config.defaultAtlasConfig.maxWidth=4096] - Maximum texture width (in pixels).
+ * @param {number} [config.defaultAtlasConfig.maxHeight=4096] - Maximum texture height (in pixels).
  * @returns {Promise<void>}
  *
  * @example
@@ -99,47 +107,51 @@ const packAtlases = async (config = {}) => {
 
     onProgress(0, packList.length);
     await getHash();
+    try {
+        await promiseUtils.sequence(packList.map((folderName, i) => {
+            return async () => {
+                const atlasDir = path.join(inputDir, folderName);
+                const files = await filesHelper.getFilesRecursive(atlasDir, false);
+                const pngAndJsonFiles = files.filter(value => value.endsWith(".png") || value.endsWith(".json"));
+                let skip = true;
 
-    await promiseUtils.sequence(packList.map((folderName, i) => {
-        return async () => {
-            const atlasDir = path.join(inputDir, folderName);
-            const files = await filesHelper.getFilesRecursive(atlasDir, false);
-            const pngAndJsonFiles = files.filter(value => value.endsWith(".png") || value.endsWith(".json"));
-            let skip = true;
+                if (pngAndJsonFiles.length > 0) {
+                    pngAndJsonFiles.forEach(file => {
+                        let fileId = path.join(atlasDir, file);
+                        if (oldHash[fileId] === undefined || oldHash[fileId] !== newHash[fileId]) {
+                            skip = false;
+                            oldHash[fileId] = newHash[fileId];
+                        }
+                    });
 
-            if (pngAndJsonFiles.length > 0) {
-                pngAndJsonFiles.forEach(file => {
-                    let fileId = path.join(atlasDir, file);
-                    if (oldHash[fileId] === undefined || oldHash[fileId] !== newHash[fileId]) {
+                    if (force) {
                         skip = false;
-                        oldHash[fileId] = newHash[fileId];
                     }
-                });
 
-                if (force) {
-                    skip = false;
+                    const atlasExists = await isAtlasExists(atlasDir);
+                    if (!atlasExists) {
+                        skip = false;
+                    }
+                }
+                for (let hashId in oldHash) {
+                    if (hashId.indexOf(atlasDir) > -1 && newHash[hashId] === undefined) {
+                        oldHash[hashId] = undefined;
+                        skip = false;
+                    }
                 }
 
-                const atlasExists = await isAtlasExists(atlasDir);
-                if (!atlasExists) {
-                    skip = false;
+                if (!skip) {
+                    await pack({ atlasDir, hash: newHash, scales, defaultAtlasConfig, tempDir, outputDir });
+                    await filesHelper.saveHash(hashPath, oldHash);
                 }
-            }
-            for (let hashId in oldHash) {
-                if (hashId.indexOf(atlasDir) > -1 && newHash[hashId] === undefined) {
-                    oldHash[hashId] = undefined;
-                    skip = false;
-                }
-            }
 
-            if (!skip) {
-                await pack({ atlasDir, hash: newHash, scales, defaultAtlasConfig, tempDir, outputDir });
-                await filesHelper.saveHash(hashPath, oldHash);
-            }
-
-            onProgress(i + 1, packList.length);
-        };
-    }));
+                onProgress(i + 1, packList.length);
+            };
+        }));
+    } catch (error) {
+        console.error(error.message);
+        return;
+    }
 };
 
 const onProgress = (finished, total) => {

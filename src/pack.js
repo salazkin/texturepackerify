@@ -42,35 +42,44 @@ module.exports = async (packConfig) => {
                         }
                     }
 
-                    const trimImgPath = scale === 1 ? scaleImgPath : scaleOutputPath;
-                    const trimImgInfo = await imageHelper.getTrimInfo(trimImgPath, currentAtlasConfig.alphaThreshold);
+                    let frameRect = null;
+                    let spriteRect = null;
+                    let trimmed = false;
 
-                    const trim = (trimImgInfo.imageWidth !== trimImgInfo.trim.w || trimImgInfo.imageHeight !== trimImgInfo.trim.h);
+                    const spritePath = scale === 1 ? scaleImgPath : scaleOutputPath;
 
-                    if (trim) {
-                        const trimOutputPath = path.join(tempDir, getTempImgName(tempImgHash, scale, "trim"));
-                        try {
-                            await fs.access(trimOutputPath);
-                        } catch {
-                            await imageHelper.trimImage(trimImgPath, trimOutputPath, currentAtlasConfig.alphaThreshold);
+                    if (currentAtlasConfig.allowTrim) {
+                        const trimInfo = await imageHelper.getTrimInfo(spritePath, currentAtlasConfig.alphaThreshold);
+                        frameRect = { w: trimInfo.trimRect.w, h: trimInfo.trimRect.h };
+                        spriteRect = { x: trimInfo.trimRect.x, y: trimInfo.trimRect.y, w: trimInfo.imageWidth, h: trimInfo.imageHeight };
+                        trimmed = trimInfo.trimmed;
+                        if (trimmed) {
+                            const trimOutputPath = path.join(tempDir, getTempImgName(tempImgHash, scale, "trim"));
+                            try {
+                                await fs.access(trimOutputPath);
+                            } catch {
+                                await imageHelper.trimImage(spritePath, trimOutputPath, currentAtlasConfig.alphaThreshold);
+                            }
                         }
+                    } else {
+                        const { imageWidth, imageHeight } = await imageHelper.getImageSize(spritePath);
+                        frameRect = { w: imageWidth, h: imageHeight };
+                        spriteRect = { x: 0, y: 0, w: imageWidth, h: imageHeight };
                     }
 
-                    const trimImgHash = await md5File(trimImgPath);
+                    const imgHash = await md5File(spritePath);
                     const extrude = isExtrude(currentAtlasConfig, file) ? 1 : 0;
 
-                    blocks.push({
-                        id: file,
-                        frame: { w: trimImgInfo.trim.w, h: trimImgInfo.trim.h },
-                        sprite: { x: trimImgInfo.trim.x, y: trimImgInfo.trim.y, w: trimImgInfo.imageWidth, h: trimImgInfo.imageHeight },
-                        trimmed: trim,
-                        extrude,
-                        hash: trimImgHash
-                    });
+                    blocks.push({ id: file, frameRect, spriteRect, trimmed, rotated: false, extrude, hash: imgHash });
                 };
             }));
 
-            const { atlasWidth, atlasHeight } = await fitBlocks(currentAtlasConfig, blocks);
+            const atlasInfo = await fitBlocks(currentAtlasConfig, blocks);
+            if (!atlasInfo) {
+                throw new Error(`Atlas is to big: ${atlasDir}`);
+            }
+
+            const { atlasWidth, atlasHeight } = atlasInfo;
 
             let textureId = atlasDir.split(path.sep).filter(Boolean).pop();
             const atlasTextureName = (scales.length === 1 && scales[0] === 1) ? textureId : `${textureId}@${scale}x`;
@@ -142,24 +151,23 @@ const saveTexture = async (atlasData, hash, tempDir, outputDir) => {
             if (block.extrude > 0) {
                 blocksArr.push(...addExtrudeData(imagePath, block));
             }
-            blocksArr.push({ imagePath, left: block.frame.x, top: block.frame.y });
+            blocksArr.push({ imagePath, left: block.frameRect.x, top: block.frameRect.y, rotated: block.rotated });
         }
     });
-
     await imageHelper.createAtlas(atlasTexturePath, atlasData.atlasWidth, atlasData.atlasHeight, blocksArr);
 };
 
 const addExtrudeData = (imagePath, block) => {
-    const { frame, extrude } = block;
+    const { frameRect, extrude, rotated } = block;
     return [
-        { imagePath, top: frame.y - extrude, left: frame.x - extrude },
-        { imagePath, top: frame.y - extrude, left: frame.x + extrude },
-        { imagePath, top: frame.y + extrude, left: frame.x - extrude },
-        { imagePath, top: frame.y + extrude, left: frame.x + extrude },
-        { imagePath, top: frame.y, left: frame.x + extrude },
-        { imagePath, top: frame.y, left: frame.x - extrude },
-        { imagePath, top: frame.y - extrude, left: frame.x },
-        { imagePath, top: frame.y + extrude, left: frame.x }
+        { imagePath, top: frameRect.y - extrude, left: frameRect.x - extrude, rotated },
+        { imagePath, top: frameRect.y - extrude, left: frameRect.x + extrude, rotated },
+        { imagePath, top: frameRect.y + extrude, left: frameRect.x - extrude, rotated },
+        { imagePath, top: frameRect.y + extrude, left: frameRect.x + extrude, rotated },
+        { imagePath, top: frameRect.y, left: frameRect.x + extrude, rotated },
+        { imagePath, top: frameRect.y, left: frameRect.x - extrude, rotated },
+        { imagePath, top: frameRect.y - extrude, left: frameRect.x, rotated },
+        { imagePath, top: frameRect.y + extrude, left: frameRect.x, rotated }
     ];
 };
 
@@ -168,7 +176,8 @@ const getTempImgName = (tempHashKey, scale, suffix) => {
 };
 
 const fitBlocks = (atlasConfig, blocks) => {
-    const packer = new MaxRectsPacker(4096, 4096, atlasConfig.extraSpace, { smart: true, pot: atlasConfig.pot, square: atlasConfig.square, border: atlasConfig.border });
+    const { maxWidth, maxHeight, pot, square, border, allowRotation, extraSpace } = atlasConfig;
+    const packer = new MaxRectsPacker(maxWidth, maxHeight, extraSpace, { smart: true, pot, square, border, allowRotation });
 
     blocks.sort((a, b) => { return Math.max(b.w, b.h) - Math.max(a.w, a.h); });
     blocks.sort((a, b) => { Math.min(b.w, b.h) - Math.min(a.w, a.h); });
@@ -186,24 +195,27 @@ const fitBlocks = (atlasConfig, blocks) => {
 
     packer.addArray(blocksWithoutDuplicates.map(block => {
         return {
-            width: block.frame.w + block.extrude * 2,
-            height: block.frame.h + block.extrude * 2,
+            width: block.frameRect.w + block.extrude * 2,
+            height: block.frameRect.h + block.extrude * 2,
             data: block.id
         };
     }));
 
+    if (packer.bins.length > 1) {
+        return;
+    }
     blocksWithoutDuplicates.forEach(block => {
         const frame = packer.bins[0].rects.find(packed => packed.data == block.id);
-        block.frame.x = block.extrude + frame.x;
-        block.frame.y = block.extrude + frame.y;
-        block.rotated = false;
+        block.frameRect.x = block.extrude + frame.x;
+        block.frameRect.y = block.extrude + frame.y;
+        block.rotated = frame.rot;
     });
 
     blocks.forEach(block => {
         if (!blocksWithoutDuplicates.includes(block)) {
             const updatedBlock = blocksWithoutDuplicates.find(el => el.hash === block.hash);
-            block.frame.x = updatedBlock.frame.x;
-            block.frame.y = updatedBlock.frame.y;
+            block.frameRect.x = updatedBlock.frameRect.x;
+            block.frameRect.y = updatedBlock.frameRect.y;
             block.rotated = updatedBlock.rotated;
             block.duplicate = true;
         }

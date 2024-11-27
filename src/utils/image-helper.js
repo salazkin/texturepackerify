@@ -4,14 +4,16 @@ const sharp = require('sharp');
 
 const scaleImage = async (inputPath, outputPath, scale) => {
     const { width, height } = await sharp(inputPath).metadata();
-    if (!width || !height) {
-        throw new Error("Unable to retrieve image dimensions.");
-    }
     const newWidth = Math.ceil(width * scale);
     const newHeight = Math.ceil(height * scale);
     await sharp(inputPath)
         .resize(newWidth, newHeight)
         .toFile(outputPath);
+};
+
+const getImageSize = async (inputPath) => {
+    const { width, height } = await sharp(inputPath).metadata();
+    return { imageWidth: width, imageHeight: height };
 };
 
 const trimImage = async (inputPath, outputPath, threshold) => {
@@ -27,16 +29,17 @@ const getTrimInfo = async (imagePath, threshold) => {
     const trimmedImage = await image.trim({ threshold }).toBuffer({ resolveWithObject: true });
     const { info: trimInfo } = trimmedImage;
 
-    return {
-        imageWidth: width,
-        imageHeight: height,
-        trim: {
-            x: trimInfo.trimOffsetLeft,
-            y: trimInfo.trimOffsetTop,
-            w: trimInfo.width,
-            h: trimInfo.height
-        }
+    const trimmed = (width !== trimInfo.width || height !== trimInfo.height);
+    const out = { imageWidth: width, imageHeight: height, trimmed };
+
+    out.trimRect = {
+        x: trimInfo.trimOffsetLeft,
+        y: trimInfo.trimOffsetTop,
+        w: trimInfo.width,
+        h: trimInfo.height
     };
+
+    return out;
 };
 
 const createAtlas = async (outputPath, atlasWidth, atlasHeight, blocks) => {
@@ -49,8 +52,12 @@ const createAtlas = async (outputPath, atlasWidth, atlasHeight, blocks) => {
         }
     });
     const compositeImages = await Promise.all(
-        blocks.map(async ({ imagePath, top, left }) => {
-            const imageBuffer = await sharp(imagePath).toBuffer();
+        blocks.map(async ({ imagePath, top, left, rotated }) => {
+            let image = await sharp(imagePath);
+            if (rotated) {
+                image = image.rotate(90);
+            }
+            const imageBuffer = await image.toBuffer();
             return { input: imageBuffer, top, left };
         })
     );
@@ -62,5 +69,6 @@ module.exports = {
     scaleImage,
     trimImage,
     getTrimInfo,
-    createAtlas
+    createAtlas,
+    getImageSize
 };

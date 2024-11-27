@@ -81,6 +81,10 @@ Below are the available parameters:
 - **`animations`** (`boolean`): Enable animation parsing. Default: `false`.
 - **`alphaThreshold`** (`number`): Alpha threshold for trimming transparent areas. Default: `1`.
 - **`spriteExtensions`** (`boolean`): Append extensions (e.g., `.png`) to sprite frame names. Default: `true`.
+- **`allowRotation`** (`boolean`): Allows sprite frame rotation. Default: `true`.
+- **`allowTrim`** (`boolean`): Enables the trimming of transparent pixels: `true`.
+- **`maxWidth`** (`number`): Maximum texture width (in pixels). Default: `4096`.
+- **`maxHeight`** (`number`): Maximum texture height (in pixels). Default: `4096`.
 
 ### Example `config.json` for Individual Atlases
 Place a `config.json` file in the desired atlas folder (e.g., `atlases/atlas1/config.json`):
