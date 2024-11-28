@@ -1,18 +1,7 @@
-const naturalCompare = require('./natural-compare');
-
 const removeExtension = (str) => {
     const split = str.split(".");
     split.length = Math.min(1, split.length - 1);
     return split.join(".");
-};
-
-const orderedStringify = (obj) => {
-    const allKeys = [];
-    JSON.stringify(obj, (k, v) => {
-        allKeys.push(k);
-        return v;
-    });
-    return JSON.stringify(obj, allKeys.sort(naturalCompare));
 };
 
 const parseSequenceString = (str) => {
@@ -46,6 +35,5 @@ const parseSequenceString = (str) => {
 
 module.exports = {
     removeExtension,
-    orderedStringify,
     parseSequenceString
 };

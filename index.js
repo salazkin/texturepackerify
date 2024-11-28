@@ -128,7 +128,7 @@ const packAtlases = async (config = {}) => {
                         skip = false;
                     }
 
-                    const atlasExists = await isAtlasExists(atlasDir);
+                    const atlasExists = await isAtlasExists(path.join(outputDir, folderName));
                     if (!atlasExists) {
                         skip = false;
                     }

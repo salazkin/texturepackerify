@@ -6,8 +6,10 @@ const jsonHashTemplate = (data) => {
         frames: {}
     };
 
-    for (let i = 0; i < data.blocks.length; i++) {
-        let block = data.blocks[i];
+    const ids = data.blocks.map(block => block.id).sort(naturalCompare);
+
+    ids.forEach(id => {
+        let block = data.blocks.find(block => block.id === id);
         const frameId = data.spriteExtensions ? block.id : stringUtils.removeExtension(block.id);
         atlas.frames[frameId] = {
             frame: {
@@ -29,7 +31,7 @@ const jsonHashTemplate = (data) => {
             trimmed: block.trimmed,
             rotated: block.rotated
         };
-    }
+    });
 
     if (data.animations) {
         const animations = parseAnimations(data.blocks.map(block => block.id));
@@ -39,8 +41,8 @@ const jsonHashTemplate = (data) => {
     }
 
     atlas.meta = {
-        app: "https://www.npmjs.com/package/texturepackerify",
-        version: "1.0",
+        app: "http://github.com/salazkin/texturepackerify",
+        version: "1.1",
         image: `${data.atlasTextureName}${data.atlasTextureExtension}`,
         format: "RGBA8888",
         size: { w: data.atlasWidth, h: data.atlasHeight },
