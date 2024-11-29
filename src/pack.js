@@ -12,51 +12,42 @@ const MaxRectsPacker = require("maxrects-packer").MaxRectsPacker;
 
 module.exports = async (packConfig) => {
     const {
-        defaultAtlasConfig,
-        scales,
+        atlasConfig,
+        scale,
         atlasDir,
         hash,
         outputDir,
-        atlasNameTemplate,
+        atlasName,
     } = packConfig;
 
     const files = (await filesHelper.getFilesRecursive(atlasDir, false))
         .filter(value => value.endsWith(".png"));
 
-    const atlasConfig = await getAtlasConfig(atlasDir);
-    const currentAtlasConfig = { ...defaultAtlasConfig, ...atlasConfig };
+    const blocks = await getBlocksData(files, atlasDir, scale, hash, atlasConfig);
+    const atlasInfo = await fitBlocks(atlasConfig, blocks);
+    if (!atlasInfo) {
+        throw new Error(`Atlas is to big: ${atlasDir}`);
+    }
 
-    await promiseUtils.sequence(scales.map(scale => {
-        return async () => {
-            const blocks = await getBlocksData(files, atlasDir, scale, hash, currentAtlasConfig);
-            const atlasInfo = await fitBlocks(currentAtlasConfig, blocks);
-            if (!atlasInfo) {
-                throw new Error(`Atlas is to big: ${atlasDir}`);
-            }
+    const { atlasWidth, atlasHeight } = atlasInfo;
 
-            const { atlasWidth, atlasHeight } = atlasInfo;
+    const atlasTextureExtension = atlasConfig.jpg ? ".jpg" : ".png";
+    const atlasData = {
+        atlasDir,
+        atlasWidth,
+        atlasHeight,
+        scale,
+        blocks,
+        atlasName,
+        atlasTextureExtension,
+        animations: atlasConfig.animations,
+        spriteExtensions: atlasConfig.spriteExtensions
+    };
 
-            const textureId = atlasDir.split(path.sep).filter(Boolean).pop();
-            const atlasTextureName = `${atlasNameTemplate.replace(/{n}/g, textureId).replace(/{s}/g, scale)}`;
-
-            const atlasData = {
-                atlasDir,
-                atlasWidth,
-                atlasHeight,
-                scale,
-                blocks,
-                atlasTextureName,
-                atlasTextureExtension: currentAtlasConfig.jpg ? ".jpg" : ".png",
-                animations: currentAtlasConfig.animations,
-                spriteExtensions: currentAtlasConfig.spriteExtensions
-            };
-
-            await promiseUtils.parallel([
-                async () => await saveJson(atlasData, outputDir),
-                async () => await saveTexture(atlasData, outputDir)
-            ]);
-        };
-    }));
+    await promiseUtils.parallel([
+        async () => await saveJson(atlasData, path.join(outputDir, `${atlasName}.json`)),
+        async () => await saveTexture(atlasData, path.join(outputDir, `${atlasName}${atlasTextureExtension}`))
+    ]);
 };
 
 const getBlocksData = async (files, atlasDir, scale, hash, config) => {
@@ -106,19 +97,6 @@ const getBlocksData = async (files, atlasDir, scale, hash, config) => {
     return blocks;
 };
 
-const getAtlasConfig = async (atlasDir) => {
-    const configPath = path.join(atlasDir, "config.json");
-    let configData = {};
-
-    try {
-        const data = await fs.readFile(configPath, "utf-8");
-        configData = JSON.parse(data);
-    } catch (err) {
-        //returning empty config;
-    }
-    return configData;
-};
-
 const isExtrude = (atlasConfig, id) => {
     if (atlasConfig.extrude !== undefined) {
         if (Array.isArray(atlasConfig.extrude)) {
@@ -130,13 +108,12 @@ const isExtrude = (atlasConfig, id) => {
     return false;
 };
 
-const saveJson = async (atlasData, outputDir) => {
-    const atlasJsonPath = path.join(outputDir, `${atlasData.atlasTextureName}.json`);
+const saveJson = async (atlasData, outputPath) => {
     const atlasTextData = templates.jsonHashTemplate(atlasData);
-    await fs.writeFile(atlasJsonPath, atlasTextData);
+    await fs.writeFile(outputPath, atlasTextData);
 };
 
-const saveTexture = async (atlasData, outputDir) => {
+const saveTexture = async (atlasData, outputPath) => {
     const frames = [];
     atlasData.blocks.forEach(block => {
         if (!block.duplicate) {
@@ -159,12 +136,10 @@ const saveTexture = async (atlasData, outputDir) => {
     );
 
     const { atlasWidth: width, atlasHeight: height } = atlasData;
-    const atlasTexturePath = path.join(outputDir, `${atlasData.atlasTextureName}${atlasData.atlasTextureExtension}`);
 
     await sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
         .composite(compositeImages)
-        .toFile(atlasTexturePath);
-
+        .toFile(outputPath);
 };
 
 const addExtrudeData = (block) => {

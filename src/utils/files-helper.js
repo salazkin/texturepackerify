@@ -2,8 +2,8 @@
 
 const fs = require("fs/promises");
 const path = require("path");
-const md5File = require('md5-file');
 const naturalCompare = require('./natural-compare');
+const crypto = require('crypto');
 
 const getFilesRecursive = async (dir, prependPath = true) => {
     const allFiles = [];
@@ -56,10 +56,18 @@ const loadHash = async (hashPath) => {
 const getHash = async (list) => {
     const hashData = {};
     const files = [...list];
+
+    const calculateHash = async (filePath) => {
+        const hash = crypto.createHash('md5');
+        const data = await fs.readFile(filePath);
+        hash.update(data);
+        return hash.digest('hex');
+    };
+
     const next = async () => {
         if (files.length) {
             const id = files.shift();
-            const hash = await md5File(id);
+            const hash = await calculateHash(id);
             hashData[id] = hash;
             await next();
         }

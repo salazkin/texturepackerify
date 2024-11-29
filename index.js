@@ -5,7 +5,6 @@ const path = require("path");
 const pack = require('./src/pack');
 const filesHelper = require('./src/utils/files-helper');
 const promiseUtils = require('./src/utils/promise-utils');
-const stringUtils = require('./src/utils/string-utils');
 const log = require('./src/utils/log');
 
 const tempDir = ".texturepackerify";
@@ -220,7 +219,13 @@ const packAtlases = async (config = {}) => {
                         skip = false;
                     }
 
-                    const atlasExists = await isAtlasExists(folderName);
+                    const filesExistArr = await Promise.all(scales.map(scale => {
+                        const hashPath = path.join(outputDir, `${getAtlasName(folderName, scale)}.json`);
+                        return filesHelper.isFileExists(hashPath);
+                    }));
+
+                    const atlasExists = filesExistArr.every(value => value === true);
+
                     if (!atlasExists) {
                         skip = false;
                     }
@@ -233,7 +238,14 @@ const packAtlases = async (config = {}) => {
                 }
 
                 if (!skip) {
-                    await pack({ atlasDir, hash: newHash, scales, defaultAtlasConfig, outputDir, atlasNameTemplate });
+                    await promiseUtils.sequence(scales.map(scale => {
+                        return async () => {
+                            const atlasConfig = await getAtlasConfig(atlasDir);
+                            const atlasName = getAtlasName(folderName, scale);
+                            await pack({ atlasDir, hash: newHash, scale, atlasConfig, outputDir, atlasName });
+                        };
+                    }));
+
                     await filesHelper.saveHash(hashPath, oldHash);
                 }
 
@@ -268,13 +280,21 @@ const getHash = async () => {
     oldHash = await filesHelper.loadHash(hashPath);
 };
 
-const isAtlasExists = async (atlasName) => {
-    const filesExistArr = await Promise.all(scales.map(scale => {
-        const hashPath = path.join(outputDir, `${atlasNameTemplate.replace(/{n}/g, atlasName).replace(/{s}/g, scale)}.json`);
-        console.log(hashPath);
-        return filesHelper.isFileExists(hashPath);
-    }));
-    return filesExistArr.every(value => value === true);
+const getAtlasName = (folderName, scale) => {
+    return `${atlasNameTemplate.replace(/{n}/g, folderName).replace(/{s}/g, scale)}`;
+};
+
+const getAtlasConfig = async (atlasDir) => {
+    const configPath = path.join(atlasDir, "config.json");
+    let configData = {};
+
+    try {
+        const data = await fs.readFile(configPath, "utf-8");
+        configData = JSON.parse(data);
+    } catch (err) {
+        //returning empty config;
+    }
+    return { ...defaultAtlasConfig, ...configData };
 };
 
 const getFiles = async () => {
