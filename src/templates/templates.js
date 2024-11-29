@@ -42,7 +42,7 @@ const jsonHashTemplate = (data) => {
 
     atlas.meta = {
         app: "http://github.com/salazkin/texturepackerify",
-        version: "1.1",
+        version: "1.2",
         image: `${data.atlasTextureName}${data.atlasTextureExtension}`,
         format: "RGBA8888",
         size: { w: data.atlasWidth, h: data.atlasHeight },

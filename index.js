@@ -5,6 +5,7 @@ const path = require("path");
 const pack = require('./src/pack');
 const filesHelper = require('./src/utils/files-helper');
 const promiseUtils = require('./src/utils/promise-utils');
+const stringUtils = require('./src/utils/string-utils');
 const log = require('./src/utils/log');
 
 const tempDir = ".texturepackerify";
@@ -18,6 +19,7 @@ let hashPath = "";
 let scales = null;
 let enableLogs = true;
 let onProgressCallback = null;
+let atlasNameTemplate = "";
 let startTime;
 let defaultAtlasConfig = {
     extraSpace: 2,
@@ -41,11 +43,12 @@ let defaultAtlasConfig = {
  * @async
  * @function
  * @param {Object} config - Pack config.
- * @param {string} [config.inputDir="."] - Directory containing input atlas folders.
- * @param {string} [config.outputDir] - Directory for the generated output. Default: Same as `inputDir`.
- * @param {string} [config.hashPath=".texturepackerify/hash.json"] - Path to the hash file for caching.
+ * @param {string} [config.inputDir="./"] - The directory containing input atlas folders.
+ * @param {string} [config.outputDir] - The directory for the generated output. Default: Same as `inputDir`.
+ * @param {string} [config.hashPath="./.texturepackerify/hash.json"] - The path to the hash file for caching.
  * @param {boolean} [config.force=false] - Specifies whether to force a rebuild of the atlases.
  * @param {number[]} [config.scales=[1]] - An array of scale factors for generating mipmaps.
+ * @param {string} [config.atlasNameTemplate="{n}@{s}x"] - A template for the output atlas name, where `{n}` is the folder name and `{s}` is the scale factor.
  * @param {boolean} [config.enableLogs=true] - Enables or disables console logs.
  * @param {Function} [config.onProgress] - Callback for progress updates.
  * @param {Object} [config.defaultAtlasConfig] - Overrides for the default configuration of atlas settings.
@@ -77,24 +80,113 @@ let defaultAtlasConfig = {
 const packAtlases = async (config = {}) => {
     oldHash = {};
     newHash = null;
-    inputDir = path.normalize(config.inputDir ?? ".");
-    outputDir = path.normalize(config.outputDir ?? inputDir);
-    hashPath = path.normalize(config.hashPath ?? path.join(tempDir, "hash.json"));
-    force = config.force ?? false;
-    scales = config.scales ?? [1];
-    enableLogs = config.enableLogs ?? true;
-    onProgressCallback = config.onProgress;
-    defaultAtlasConfig = Object.assign({}, defaultAtlasConfig, config.defaultAtlasConfig);
-    startTime = performance.now();
 
-    await filesHelper.createDirectoryRecursive(tempDir);
-    await filesHelper.createDirectoryRecursive(outputDir);
-    await filesHelper.createDirectoryRecursive(path.dirname(hashPath));
+    if (!config.inputDir) {
+        console.error("Pack config error: No 'config.inputDir'");
+        return;
+    }
+
+    if (typeof config.inputDir !== 'string') {
+        console.error("Pack config error: 'config.inputDir' must be a string");
+        return;
+    }
+
+    inputDir = path.normalize(config.inputDir);
 
     const assetsExist = await filesHelper.isFileExists(inputDir);
     if (!assetsExist) {
-        throw new Error(`No folder ${inputDir}`);
+        console.error(`No input folder: ${inputDir}`);
+        return;
     }
+
+    if (config.outputDir !== undefined && typeof config.outputDir !== 'string') {
+        console.error("Pack config error: 'config.outputDir' must be a string");
+        return;
+    }
+
+    outputDir = path.normalize(config.outputDir ?? inputDir);
+
+    if (config.hashPath !== undefined && typeof config.hashPath !== 'string') {
+        console.error("Pack config error: 'config.hashPath' must be a string");
+        return;
+    }
+
+    hashPath = tempDir;
+
+    if (config.hashPath) {
+        hashPath = path.normalize(config.hashPath);
+    }
+
+    if (!hashPath.endsWith(".json")) {
+        hashPath = path.join(hashPath, "hash.json");
+    }
+
+    if (config.force !== undefined && typeof config.force !== 'boolean') {
+        console.error("Pack config error: 'config.force' must be a boolean");
+        return;
+    }
+
+    force = config.force ?? false;
+
+    scales = config.scales ?? [1];
+
+    if (scales) {
+        if (!Array.isArray(scales)) {
+            console.error("Pack config error: 'config.scales' must be an array");
+            return;
+        }
+        if (scales.length === 0) {
+            console.error("Pack config error: 'config.scales' cannot be empty");
+            return;
+        }
+
+        for (const scale of scales) {
+            if (typeof scale !== 'number') {
+                console.error("Pack config error: All elements in 'config.scales' array must be a numbers");
+                return;
+            }
+        }
+
+        scales = [...new Set(scales)];
+    }
+
+    if (config.enableLogs !== undefined && typeof config.enableLogs !== 'boolean') {
+        console.error("Pack config error: 'config.enableLogs' must be a boolean");
+        return;
+    }
+
+    enableLogs = config.enableLogs ?? true;
+
+    if (config.atlasNameTemplate !== undefined && typeof config.atlasNameTemplate !== 'string') {
+        console.error("Pack config error: 'config.atlasNameTemplate' must be a string");
+        return;
+    }
+
+    atlasNameTemplate = config.atlasNameTemplate ?? "{n}@{s}x";
+
+    if (!atlasNameTemplate.includes("{n}")) {
+        console.error("Pack config error: No '{n}' placeholder in 'config.atlasNameTemplate'");
+        return;
+    }
+
+    if (scales.length > 1 && !atlasNameTemplate.includes("{s}")) {
+        console.error("Pack config error: 'config.atlasNameTemplate' should have placeholder '{s}' if more then one scale factor in 'config.scales' array");
+        return;
+    }
+
+    if (config.onProgress !== undefined && !(config.onProgress instanceof Function)) {
+        console.error("Pack config error: 'config.onProgress' must be a Function");
+        return;
+    }
+
+    onProgressCallback = config.onProgress;
+
+    defaultAtlasConfig = Object.assign({}, defaultAtlasConfig, config.defaultAtlasConfig);
+    startTime = performance.now();
+
+    await filesHelper.createDirectoryRecursive(outputDir);
+    await filesHelper.createDirectoryRecursive(path.dirname(hashPath));
+
     let packList = [];
     const files = await fs.readdir(inputDir);
     for (const file of files) {
@@ -128,7 +220,7 @@ const packAtlases = async (config = {}) => {
                         skip = false;
                     }
 
-                    const atlasExists = await isAtlasExists(path.join(outputDir, folderName));
+                    const atlasExists = await isAtlasExists(folderName);
                     if (!atlasExists) {
                         skip = false;
                     }
@@ -141,7 +233,7 @@ const packAtlases = async (config = {}) => {
                 }
 
                 if (!skip) {
-                    await pack({ atlasDir, hash: newHash, scales, defaultAtlasConfig, tempDir, outputDir });
+                    await pack({ atlasDir, hash: newHash, scales, defaultAtlasConfig, outputDir, atlasNameTemplate });
                     await filesHelper.saveHash(hashPath, oldHash);
                 }
 
@@ -150,6 +242,7 @@ const packAtlases = async (config = {}) => {
         }));
     } catch (error) {
         console.error(error.message);
+        //console.error(error.stack);
         return;
     }
 };
@@ -175,13 +268,13 @@ const getHash = async () => {
     oldHash = await filesHelper.loadHash(hashPath);
 };
 
-const isAtlasExists = async (atlasPath) => {
-    if (scales.length === 1 && scales[0] === 1) {
-        return filesHelper.isFileExists(`${atlasPath}.json`);
-    } else {
-        const filesExistArr = await Promise.all(scales.map(scale => filesHelper.isFileExists(`${atlasPath}@${scale}x.json`)));
-        return filesExistArr.every(value => value === true);
-    }
+const isAtlasExists = async (atlasName) => {
+    const filesExistArr = await Promise.all(scales.map(scale => {
+        const hashPath = path.join(outputDir, `${atlasNameTemplate.replace(/{n}/g, atlasName).replace(/{s}/g, scale)}.json`);
+        console.log(hashPath);
+        return filesHelper.isFileExists(hashPath);
+    }));
+    return filesExistArr.every(value => value === true);
 };
 
 const getFiles = async () => {

@@ -50,13 +50,14 @@ $ node pack.js
 ## Pack Config
 The `pack` function accepts a `config` object with the following parameters:
 
-### Configuration Parameters (Compact)
+### Pack Configuration Parameters
 
-- **`inputDir`** (`string`): Directory containing input atlas folders. Default: `"./"`.
-- **`outputDir`** (`string`): Directory for the generated output. Default: Same as `inputDir`.
-- **`hashPath`** (`string`): Path to the hash file for caching. Default: `"./.texturepackerify/hash.json"`.
+- **`inputDir`** (`string`): The directory containing input atlas folders.
+- **`outputDir`** (`string`): The directory for the generated output. Default: Same as `inputDir`.
+- **`hashPath`** (`string`): The path to the hash file for caching. Default: `"./.texturepackerify/hash.json"`.
 - **`force`** (`boolean`): Specifies whether to force a rebuild of the atlases. Default: `false`.
 - **`scales`** (`number[]`): An array of scale factors for generating mipmaps. Default: `[1]`.
+- **`atlasNameTemplate`** (`string`): A template for the output atlas name, where `{n}` is the folder name and `{s}` is the scale factor. Default: `{n}@{s}x`.
 - **`enableLogs`** (`boolean`): Enables or disables console logs. Default: `true`.
 - **`onProgress`** (`Function`): Callback for progress updates. Default: *(none)*.
 - **`defaultAtlasConfig`** (`Object`): Customizes default atlas settings. Default: `{}`.
@@ -70,7 +71,7 @@ You can customize atlas generation by using a `config.json` file. This file can 
 
 Below are the available parameters:
 
-### Configuration Parameters (Compact)
+### Atlas Configuration Parameters
 
 - **`extraSpace`** (`number`): Space (in pixels) between texture frames. Default: `2`.
 - **`border`** (`number`): Border (in pixels) around the atlas texture. Default: `0`.
