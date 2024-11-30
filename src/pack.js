@@ -18,6 +18,7 @@ module.exports = async (packConfig) => {
         outputDir,
         atlasName,
         appendFileHash,
+        appendTextureFormat,
         atlasNameMaxHashLength,
         textureFormat,
         formatConfig
@@ -71,7 +72,8 @@ module.exports = async (packConfig) => {
         atlasTextDataHashStr = `.${atlasHash.slice(0, atlasNameMaxHashLength)}`;
     }
 
-    const atlasTextDataOutputName = `${atlasName}${atlasTextDataHashStr}.json`;
+    let atlasDataTextureFormatStr = appendTextureFormat ? `.${textureFormat}` : "";
+    const atlasTextDataOutputName = `${atlasName}${atlasTextDataHashStr}${atlasDataTextureFormatStr}.json`;
 
     await fs.writeFile(path.join(outputDir, atlasTextDataOutputName), atlasTextData);
 };

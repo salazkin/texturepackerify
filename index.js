@@ -21,7 +21,7 @@ let scales = null;
 let enableLogs = true;
 let onProgressCallback = null;
 let appendFileHash = false;
-
+let appendTextureFormat = false;
 let textureFormat = "";
 let startTime;
 
@@ -87,7 +87,8 @@ let formatConfig = null;
  * @param {string} [config.hashPath="./.texturepackerify/hash.json"] - The path to the hash file for caching.
  * @param {boolean} [config.force=false] - Specifies whether to force a rebuild of the atlases.
  * @param {number[]} [config.scales=[1]] - An array of scale factors for generating mipmaps.
- * @param {string} [config.appendFileHash=false] - Specifies whether to add file hash to output file names.
+ * @param {boolean} [config.appendFileHash=false] - Specifies whether to add file hash to output file names.
+ * @param {boolean} [config.appendTextureFormat=false] - Specifies whether to add texture format to output atlas names.
  * @param {"png"|"jpeg"|"webp"|"avif"} [config.textureFormat="png"] - Specifies the texture output format.
  * @param {boolean} [config.enableLogs=true] - Enables or disables console logs.
  * @param {Function} [config.onProgress] - Callback for progress updates.
@@ -101,12 +102,12 @@ let formatConfig = null;
  *   await texturepackerify.pack({
  *     inputDir: "./atlases",
  *     outputDir: "./public/assets",
+ *     textureFormat: "webp",
  *     defaultAtlasConfig: {
  *       scales: [1, 0.5],
  *       pot: false,
  *       animations: true,
  *       border: 2,
- *       textureFormat: "webp",
  *     },
  *     formatConfig: {
  *       webp: { quality: 80 },
@@ -198,6 +199,13 @@ const packAtlases = async (config = {}) => {
 
     appendFileHash = config.appendFileHash ?? false;
 
+    if (config.appendTextureFormat !== undefined && typeof config.appendTextureFormat !== 'boolean') {
+        console.error("Pack config error: 'config.appendTextureFormat' must be a boolean");
+        return;
+    }
+
+    appendTextureFormat = config.appendTextureFormat ?? false;
+
     if (config.textureFormat !== undefined && !availableFormats.includes(config.textureFormat)) {
         console.error(`Pack config error: 'config.textureFormat' must one of the following string values: ${availableFormats.map(v => `'${v}'`).join(" | ")} `);
         return;
@@ -285,6 +293,7 @@ const packAtlases = async (config = {}) => {
                                 outputDir,
                                 atlasName,
                                 appendFileHash,
+                                appendTextureFormat,
                                 atlasNameMaxHashLength,
                                 textureFormat: outputTextureFormat,
                                 formatConfig
@@ -361,7 +370,7 @@ const getHash = async () => {
 const isAtlasExists = async (atlasPath, atlasName, atlasExtension) => {
     const filesList = (await fs.readdir(atlasPath))
         .filter(path => path.endsWith(".json") || path.endsWith(`.${atlasExtension}`));
-    const checkList = [`${atlasName}.json`, `${atlasName}.${atlasExtension}`];
+    const checkList = [`${atlasName}${appendTextureFormat ? `.${atlasExtension}` : ""}.json`, `${atlasName}.${atlasExtension}`];
     return checkList.every(item => filesList.includes(item));
 };
 
