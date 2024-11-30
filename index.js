@@ -8,6 +8,8 @@ const promiseUtils = require('./src/utils/promise-utils');
 const log = require('./src/utils/log');
 
 const tempDir = ".texturepackerify";
+const availableFormats = ["png", "jpeg", "webp", "avif"];
+
 let oldHash = null;
 let newHash = null;
 
@@ -18,13 +20,19 @@ let hashPath = "";
 let scales = null;
 let enableLogs = true;
 let onProgressCallback = null;
-let atlasNameTemplate = "";
+let appendFileHash = false;
+
+let textureFormat = "";
 let startTime;
+
+const atlasNameMaxHashLength = 20;
+
 let defaultAtlasConfig = {
     extraSpace: 2,
     border: 0,
     alphaThreshold: 1,
-    jpg: false,
+    removeAlpha: false,
+    jpeg: false,
     extrude: false,
     pot: true,
     square: false,
@@ -36,61 +44,88 @@ let defaultAtlasConfig = {
     maxHeight: 4096
 };
 
+let formatConfig = null;
+
+/**
+* Parameters texture formats.
+* @typedef {Object} FormatConfig
+* @property {Object} [jpeg] - Configuration options for `jpeg` texture format.
+* @property {number} [jpeg.quality=80] - Specifies compression quality (1-100).
+* @property {Object} [webp] - Configuration options for `webp` texture format.
+* @property {number} [webp.quality=80] - Specifies compression quality (1-100).
+* @property {number} [webp.alphaQuality=80] - Specifies compression quality for alpha channel (0-100).
+* @property {Object} [avif] - Configuration options for `avif` texture format.
+* @property {number} [avif.quality=80] - Specifies compression quality (1-100).
+*/
+
+/**
+ * Parameters for the default atlas configuration.
+ * @typedef {Object} AtlasConfig
+ * @property {number} [extraSpace=2] - Space (in pixels) between texture frames.
+ * @property {number} [border=0] - Border (in pixels) around the atlas texture.
+ * @property {boolean} [jpeg=false] - Force to use `jpeg` instead of `png` for texture format.
+ * @property {boolean} [removeAlpha=false] - Remove alpha channel.
+ * @property {boolean|Array} [extrude=false] - Expand image borders by one pixel in all directions. Accepts `true`, `false`, or an array of IDs.
+ * @property {boolean} [pot=true] - Force the atlas size to be a power of two (e.g., 256x256, 512x512).
+ * @property {boolean} [square=false] - Force the atlas size to be square.
+ * @property {boolean} [animations=false] - Enable animation parsing.
+ * @property {number} [alphaThreshold=1] - Alpha threshold value for trimming transparent areas.
+ * @property {boolean} [spriteExtensions=true] - Append extensions (e.g., `.png`) to sprite frame names.
+ * @property {boolean} [allowRotation=true] - Allows sprite frame rotation.
+ * @property {boolean} [allowTrim=true] - Enables the trimming of transparent pixels.
+ * @property {number} [maxWidth=4096] - Maximum texture width (in pixels).
+ * @property {number} [maxHeight=4096] - Maximum texture height (in pixels).
+ */
+
 /**
  * Packs textures into atlases using the TexturePackerify tool.
- *
  * @async
  * @function
  * @param {Object} config - Pack config.
  * @param {string} [config.inputDir="./"] - The directory containing input atlas folders.
- * @param {string} [config.outputDir] - The directory for the generated output. Default: Same as `inputDir`.
+ * @param {string} [config.outputDir=inputDir] - The directory for the generated output. Default: Same as `inputDir`.
  * @param {string} [config.hashPath="./.texturepackerify/hash.json"] - The path to the hash file for caching.
  * @param {boolean} [config.force=false] - Specifies whether to force a rebuild of the atlases.
  * @param {number[]} [config.scales=[1]] - An array of scale factors for generating mipmaps.
- * @param {string} [config.atlasNameTemplate="{n}@{s}x"] - A template for the output atlas name, where `{n}` is the folder name and `{s}` is the scale factor.
+ * @param {string} [config.appendFileHash=false] - Specifies whether to add file hash to output file names.
+ * @param {"png"|"jpeg"|"webp"|"avif"} [config.textureFormat="png"] - Specifies the texture output format.
  * @param {boolean} [config.enableLogs=true] - Enables or disables console logs.
  * @param {Function} [config.onProgress] - Callback for progress updates.
- * @param {Object} [config.defaultAtlasConfig] - Overrides for the default configuration of atlas settings.
- * @param {number} [config.defaultAtlasConfig.extraSpace=2] - Space (in pixels) between texture frames.
- * @param {number} [config.defaultAtlasConfig.border=0] - Border (in pixels) around the atlas texture.
- * @param {boolean} [config.defaultAtlasConfig.jpg=false] - Set to `true` to output the atlas as a JPEG file.
- * @param {boolean|Array} [config.defaultAtlasConfig.extrude=false] - Expand image borders by one pixel in all directions. Accepts `true`, `false`, or an array of IDs.
- * @param {boolean} [config.defaultAtlasConfig.pot=true] - Force the atlas size to be a power of two (e.g., 256x256, 512x512).
- * @param {boolean} [config.defaultAtlasConfig.square=false] - Force the atlas size to be square.
- * @param {boolean} [config.defaultAtlasConfig.animations=false] - Enable animation parsing.
- * @param {number} [config.defaultAtlasConfig.alphaThreshold=1] - Alpha threshold value for trimming transparent areas.
- * @param {boolean} [config.defaultAtlasConfig.spriteExtensions=true] - Append extensions (e.g., `.png`) to sprite frame names.
- * @param {boolean} [config.defaultAtlasConfig.allowRotation=true] - Allows sprite frame rotation.
- * @param {boolean} [config.defaultAtlasConfig.allowTrim=true] - Enables the trimming of transparent pixels.
- * @param {number} [config.defaultAtlasConfig.maxWidth=4096] - Maximum texture width (in pixels).
- * @param {number} [config.defaultAtlasConfig.maxHeight=4096] - Maximum texture height (in pixels).
+ * @param {AtlasConfig} [config.defaultAtlasConfig] - Overrides for the default configuration of atlas settings.
+ * @param {FormatConfig} [config.formatConfig] - Overrides for the default configuration of atlas settings.
  * @returns {Promise<void>}
- *
  * @example
- * await texturepackerify.pack({
- *   inputDir: "atlases",
- *   scales: [1, 0.5],
- *   defaultAtlasConfig: {
- *     pot: false
- *   }
- * });
+ * 
+ * const texturepackerify = require("texturepackerify");
+ * const packAtlases = async () => {
+ *   await texturepackerify.pack({
+ *     inputDir: "./atlases",
+ *     outputDir: "./public/assets",
+ *     defaultAtlasConfig: {
+ *       scales: [1, 0.5],
+ *       pot: false,
+ *       animations: true,
+ *       border: 2,
+ *       textureFormat: "webp",
+ *     },
+ *     formatConfig: {
+ *       webp: { quality: 80 },
+ *     },
+ *  });
+ * };
+ * packAtlases();
  */
 
 const packAtlases = async (config = {}) => {
     oldHash = {};
     newHash = null;
 
-    if (!config.inputDir) {
-        console.error("Pack config error: No 'config.inputDir'");
-        return;
-    }
-
-    if (typeof config.inputDir !== 'string') {
+    if (config.inputDir !== undefined && typeof config.inputDir !== 'string') {
         console.error("Pack config error: 'config.inputDir' must be a string");
         return;
     }
 
-    inputDir = path.normalize(config.inputDir);
+    inputDir = path.normalize(config.inputDir ?? ".");
 
     const assetsExist = await filesHelper.isFileExists(inputDir);
     if (!assetsExist) {
@@ -156,22 +191,19 @@ const packAtlases = async (config = {}) => {
 
     enableLogs = config.enableLogs ?? true;
 
-    if (config.atlasNameTemplate !== undefined && typeof config.atlasNameTemplate !== 'string') {
-        console.error("Pack config error: 'config.atlasNameTemplate' must be a string");
+    if (config.appendFileHash !== undefined && typeof config.appendFileHash !== 'boolean') {
+        console.error("Pack config error: 'config.appendFileHash' must be a boolean");
         return;
     }
 
-    atlasNameTemplate = config.atlasNameTemplate ?? "{n}@{s}x";
+    appendFileHash = config.appendFileHash ?? false;
 
-    if (!atlasNameTemplate.includes("{n}")) {
-        console.error("Pack config error: No '{n}' placeholder in 'config.atlasNameTemplate'");
+    if (config.textureFormat !== undefined && !availableFormats.includes(config.textureFormat)) {
+        console.error(`Pack config error: 'config.textureFormat' must one of the following string values: ${availableFormats.map(v => `'${v}'`).join(" | ")} `);
         return;
     }
 
-    if (scales.length > 1 && !atlasNameTemplate.includes("{s}")) {
-        console.error("Pack config error: 'config.atlasNameTemplate' should have placeholder '{s}' if more then one scale factor in 'config.scales' array");
-        return;
-    }
+    textureFormat = config.textureFormat ?? "png";
 
     if (config.onProgress !== undefined && !(config.onProgress instanceof Function)) {
         console.error("Pack config error: 'config.onProgress' must be a Function");
@@ -181,75 +213,87 @@ const packAtlases = async (config = {}) => {
     onProgressCallback = config.onProgress;
 
     defaultAtlasConfig = Object.assign({}, defaultAtlasConfig, config.defaultAtlasConfig);
+
+    formatConfig = config.formatConfig;
+
     startTime = performance.now();
 
     await filesHelper.createDirectoryRecursive(outputDir);
     await filesHelper.createDirectoryRecursive(path.dirname(hashPath));
 
-    let packList = [];
-    const files = await fs.readdir(inputDir);
-    for (const file of files) {
-        const currentPath = path.join(inputDir, file);
-        const stats = await fs.lstat(currentPath);
-        if (stats.isDirectory()) {
-            packList.push(file);
-        }
-    }
+    let packList = await getPackList();
 
-    onProgress(0, packList.length);
+    const totalSteps = packList.length * scales.length;
+    let finished = 0;
+
+    onProgress(finished, totalSteps);
+
     await getHash();
     try {
-        await promiseUtils.sequence(packList.map((folderName, i) => {
+        await promiseUtils.sequence(packList.map(folderName => {
             return async () => {
-                const atlasDir = path.join(inputDir, folderName);
-                const files = await filesHelper.getFilesRecursive(atlasDir, false);
-                const pngAndJsonFiles = files.filter(value => value.endsWith(".png") || value.endsWith(".json"));
-                let skip = true;
 
-                if (pngAndJsonFiles.length > 0) {
-                    pngAndJsonFiles.forEach(file => {
-                        let fileId = path.join(atlasDir, file);
-                        if (oldHash[fileId] === undefined || oldHash[fileId] !== newHash[fileId]) {
-                            skip = false;
-                            oldHash[fileId] = newHash[fileId];
+                await promiseUtils.sequence(scales.map(scale => {
+                    return async () => {
+
+                        const atlasDir = path.join(inputDir, folderName);
+                        const files = (await fs.readdir(atlasDir));
+
+                        const atlasResourceFiles = files.filter(value => value.endsWith(".png") || value.endsWith(".json"));
+                        const atlasConfig = await getAtlasConfig(atlasDir);
+                        const outputTextureFormat = ((atlasConfig.jpeg || atlasConfig.jpg) && textureFormat === "png") ? "jpeg" : textureFormat;
+                        const atlasName = getAtlasName(folderName, scale);
+
+                        let skip = true;
+
+                        if (atlasResourceFiles.length > 0) {
+                            atlasResourceFiles.forEach(file => {
+                                let fileId = path.join(atlasDir, file);
+                                if (oldHash[fileId] === undefined || oldHash[fileId] !== newHash[fileId]) {
+                                    skip = false;
+                                    oldHash[fileId] = newHash[fileId];
+                                }
+                            });
+
+                            if (force) {
+                                skip = false;
+                            }
+
+                            if (appendFileHash) {
+                                skip = false;
+                            }
+
+                            const atlasExists = await isAtlasExists(outputDir, atlasName, outputTextureFormat);
+                            if (!atlasExists) {
+                                skip = false;
+                            }
                         }
-                    });
 
-                    if (force) {
-                        skip = false;
-                    }
+                        for (let hashId in oldHash) {
+                            if (hashId.indexOf(atlasDir) > -1 && newHash[hashId] === undefined) {
+                                oldHash[hashId] = undefined;
+                                skip = false;
+                            }
+                        }
 
-                    const filesExistArr = await Promise.all(scales.map(scale => {
-                        const hashPath = path.join(outputDir, `${getAtlasName(folderName, scale)}.json`);
-                        return filesHelper.isFileExists(hashPath);
-                    }));
-
-                    const atlasExists = filesExistArr.every(value => value === true);
-
-                    if (!atlasExists) {
-                        skip = false;
-                    }
-                }
-                for (let hashId in oldHash) {
-                    if (hashId.indexOf(atlasDir) > -1 && newHash[hashId] === undefined) {
-                        oldHash[hashId] = undefined;
-                        skip = false;
-                    }
-                }
-
-                if (!skip) {
-                    await promiseUtils.sequence(scales.map(scale => {
-                        return async () => {
-                            const atlasConfig = await getAtlasConfig(atlasDir);
-                            const atlasName = getAtlasName(folderName, scale);
-                            await pack({ atlasDir, hash: newHash, scale, atlasConfig, outputDir, atlasName });
-                        };
-                    }));
-
-                    await filesHelper.saveHash(hashPath, oldHash);
-                }
-
-                onProgress(i + 1, packList.length);
+                        if (!skip) {
+                            await pack({
+                                atlasDir,
+                                hash: newHash,
+                                scale,
+                                atlasConfig,
+                                outputDir,
+                                atlasName,
+                                appendFileHash,
+                                atlasNameMaxHashLength,
+                                textureFormat: outputTextureFormat,
+                                formatConfig
+                            });
+                        }
+                        await filesHelper.saveHash(hashPath, oldHash);
+                        onProgress(++finished, totalSteps);
+                    };
+                }));
             };
         }));
     } catch (error) {
@@ -257,6 +301,30 @@ const packAtlases = async (config = {}) => {
         //console.error(error.stack);
         return;
     }
+};
+
+const getPackList = async () => {
+    let packList = [];
+    const skipList = ["node_modules",];
+
+    const files = await fs.readdir(inputDir);
+    const resolvedOutputPath = path.resolve(outputDir);
+    const resolvedTempPath = path.resolve(tempDir);
+
+    for (const file of files) {
+        const currentPath = path.join(inputDir, file);
+        const stats = await fs.lstat(currentPath);
+        if (stats.isDirectory() && !skipList.includes(file)) {
+            const resolvedCurrentPath = path.resolve(file);
+            if (resolvedCurrentPath !== resolvedOutputPath && resolvedCurrentPath !== resolvedTempPath) {
+                const resources = (await fs.readdir(currentPath)).filter(file => file.endsWith(".png"));
+                if (resources.length > 0) {
+                    packList.push(file);
+                }
+            }
+        }
+    }
+    return packList;
 };
 
 const onProgress = (finished, total) => {
@@ -274,14 +342,27 @@ const onProgress = (finished, total) => {
     }
 };
 
+const getAtlasName = (folderName, scale) => {
+    return (scales.length === 1 && scales[0] === 1) ? folderName : `${folderName}@${scale}x`;
+};
+
 const getHash = async () => {
     const list = await getFiles();
-    newHash = await filesHelper.getHash(list);
+    newHash = {};
+
+    for (const filePath of list) {
+        const data = await fs.readFile(filePath);
+        const hash = await filesHelper.getDataHash(data);
+        newHash[filePath] = hash;
+    }
     oldHash = await filesHelper.loadHash(hashPath);
 };
 
-const getAtlasName = (folderName, scale) => {
-    return `${atlasNameTemplate.replace(/{n}/g, folderName).replace(/{s}/g, scale)}`;
+const isAtlasExists = async (atlasPath, atlasName, atlasExtension) => {
+    const filesList = (await fs.readdir(atlasPath))
+        .filter(path => path.endsWith(".json") || path.endsWith(`.${atlasExtension}`));
+    const checkList = [`${atlasName}.json`, `${atlasName}.${atlasExtension}`];
+    return checkList.every(item => filesList.includes(item));
 };
 
 const getAtlasConfig = async (atlasDir) => {

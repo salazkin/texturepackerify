@@ -53,28 +53,8 @@ const loadHash = async (hashPath) => {
     return hashData;
 };
 
-const getHash = async (list) => {
-    const hashData = {};
-    const files = [...list];
-
-    const calculateHash = async (filePath) => {
-        const hash = crypto.createHash('md5');
-        const data = await fs.readFile(filePath);
-        hash.update(data);
-        return hash.digest('hex');
-    };
-
-    const next = async () => {
-        if (files.length) {
-            const id = files.shift();
-            const hash = await calculateHash(id);
-            hashData[id] = hash;
-            await next();
-        }
-        return hashData;
-    };
-    await next();
-    return hashData;
+const getDataHash = async (data) => {
+    return crypto.createHash("md5").update(data).digest("hex");
 };
 
 const saveHash = async (hashPath, hash) => {
@@ -87,5 +67,5 @@ module.exports = {
     isFileExists,
     saveHash,
     loadHash,
-    getHash
+    getDataHash
 };

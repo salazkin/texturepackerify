@@ -5,7 +5,6 @@ const path = require("path");
 const filesHelper = require('./utils/files-helper');
 const promiseUtils = require('./utils/promise-utils');
 const templates = require('./templates/templates');
-
 const sharp = require('sharp');
 
 const MaxRectsPacker = require("maxrects-packer").MaxRectsPacker;
@@ -18,6 +17,10 @@ module.exports = async (packConfig) => {
         hash,
         outputDir,
         atlasName,
+        appendFileHash,
+        atlasNameMaxHashLength,
+        textureFormat,
+        formatConfig
     } = packConfig;
 
     const files = (await filesHelper.getFilesRecursive(atlasDir, false))
@@ -31,23 +34,46 @@ module.exports = async (packConfig) => {
 
     const { atlasWidth, atlasHeight } = atlasInfo;
 
-    const atlasTextureExtension = atlasConfig.jpg ? ".jpg" : ".png";
-    const atlasData = {
-        atlasDir,
+    const atlasTextureData = await getTextureBuffer({
+        atlasWidth,
+        atlasHeight,
+        blocks,
+        removeAlpha: atlasConfig.removeAlpha,
+        textureFormat,
+        formatConfig
+    });
+
+    let atlasTextureHashStr = "";
+
+    if (appendFileHash) {
+        const textureHash = await filesHelper.getDataHash(atlasTextureData);
+        atlasTextureHashStr = `.${textureHash.slice(0, atlasNameMaxHashLength)}`;
+    }
+
+    const atlasOutputName = `${atlasName}${atlasTextureHashStr}.${textureFormat}`;
+
+    await sharp(atlasTextureData).toFile(path.join(outputDir, atlasOutputName));
+
+    const atlasTextData = templates.jsonHashTemplate({
+        textureName: atlasOutputName,
         atlasWidth,
         atlasHeight,
         scale,
         blocks,
-        atlasName,
-        atlasTextureExtension,
         animations: atlasConfig.animations,
         spriteExtensions: atlasConfig.spriteExtensions
-    };
+    });
 
-    await promiseUtils.parallel([
-        async () => await saveJson(atlasData, path.join(outputDir, `${atlasName}.json`)),
-        async () => await saveTexture(atlasData, path.join(outputDir, `${atlasName}${atlasTextureExtension}`))
-    ]);
+    let atlasTextDataHashStr = "";
+
+    if (appendFileHash) {
+        const atlasHash = await filesHelper.getDataHash(atlasTextData);
+        atlasTextDataHashStr = `.${atlasHash.slice(0, atlasNameMaxHashLength)}`;
+    }
+
+    const atlasTextDataOutputName = `${atlasName}${atlasTextDataHashStr}.json`;
+
+    await fs.writeFile(path.join(outputDir, atlasTextDataOutputName), atlasTextData);
 };
 
 const getBlocksData = async (files, atlasDir, scale, hash, config) => {
@@ -94,6 +120,7 @@ const getBlocksData = async (files, atlasDir, scale, hash, config) => {
             blocks.push({ id: file, frameRect, spriteRect, trimmed, rotated: false, extrude, hash: imgHash, imageBuffer });
         };
     }));
+
     return blocks;
 };
 
@@ -108,14 +135,11 @@ const isExtrude = (atlasConfig, id) => {
     return false;
 };
 
-const saveJson = async (atlasData, outputPath) => {
-    const atlasTextData = templates.jsonHashTemplate(atlasData);
-    await fs.writeFile(outputPath, atlasTextData);
-};
+const getTextureBuffer = async (params) => {
+    const { atlasWidth: width, atlasHeight: height, blocks, removeAlpha, textureFormat, formatConfig } = params;
 
-const saveTexture = async (atlasData, outputPath) => {
     const frames = [];
-    atlasData.blocks.forEach(block => {
+    blocks.forEach(block => {
         if (!block.duplicate) {
             if (block.extrude > 0) {
                 frames.push(...addExtrudeData(block));
@@ -135,11 +159,24 @@ const saveTexture = async (atlasData, outputPath) => {
         })
     );
 
-    const { atlasWidth: width, atlasHeight: height } = atlasData;
+    let buffer = await sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: removeAlpha ? 1 : 0 } } })
+        .composite(compositeImages);
 
-    await sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-        .composite(compositeImages)
-        .toFile(outputPath);
+    switch (textureFormat) {
+        case "jpeg":
+            buffer = buffer.jpeg({ quality: formatConfig?.jpeg?.quality });
+            break;
+        case "webp":
+            buffer = buffer.webp({ quality: formatConfig?.webp?.quality, alphaQuality: formatConfig?.webp?.alphaQuality });
+            break;
+        case "avif":
+            buffer = buffer.avif({ quality: formatConfig?.avif?.quality });
+            break;
+        default:
+            buffer = buffer.png();
+    }
+
+    return buffer.toBuffer();
 };
 
 const addExtrudeData = (block) => {
