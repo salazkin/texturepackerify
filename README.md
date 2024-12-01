@@ -63,7 +63,7 @@ The `pack` function accepts a `config` object with the following parameters:
 | `scales`              | `number[]`                      | `[1]`                             | An array of scale factors for generating mipmaps.         |
 | `appendFileHash`      | `boolean`                       | `false`                           | Adds a file hash to output file names.                    |
 | `appendTextureFormat` | `boolean`                       | `false`                           | Adds a texture format to output atlas names.              |
-| `textureFormat`       | `"png"\|"jpeg"\|"webp"\|"avif"` | `"png"`                           | Specifies the texture output format.                      |
+| `textureFormat`       | `"png" \| "jpeg" \| "webp" \| "avif"` | `"png"`                           | Specifies the texture output format.                      |
 | `enableLogs`          | `boolean`                       | `true`                            | Enables or disables console logs.                         |
 | `onProgress`          | `Function`                      | _(none)_                          | Callback function for tracking progress.                  |
 | `defaultAtlasConfig`  | `Object`                        | `{}`                              | Customizes default atlas settings.                        |
@@ -100,8 +100,6 @@ The `pack` function accepts a `config` object with the following parameters:
 | `webp` | `quality`      | `number` | `80`    | Specifies compression quality (1-100).                   |
 |        | `alphaQuality` | `number` | `80`    | Specifies compression quality for alpha channel (0–100). |
 | `avif` | `quality`      | `number` | `50`    | Specifies compression quality (1–100).                   |
-
-**Example `formatConfig`:**
 
 ## Quick Tips
 

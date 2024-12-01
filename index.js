@@ -246,8 +246,6 @@ const packAtlases = async (config = {}) => {
                 const atlasResourceFiles = files.filter(value => value.endsWith(".png") || value.endsWith(".json"));
                 let skip = true;
 
-
-
                 if (force) {
                     skip = false;
                 }
