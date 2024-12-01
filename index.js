@@ -103,8 +103,8 @@ let formatConfig = null;
  *     inputDir: "./atlases",
  *     outputDir: "./public/assets",
  *     textureFormat: "webp",
+ *     scales: [1, 0.5],
  *     defaultAtlasConfig: {
- *       scales: [1, 0.5],
  *       pot: false,
  *       animations: true,
  *       border: 2,
@@ -241,51 +241,50 @@ const packAtlases = async (config = {}) => {
         await promiseUtils.sequence(packList.map(folderName => {
             return async () => {
 
+                const atlasDir = path.join(inputDir, folderName);
+                const files = (await fs.readdir(atlasDir));
+                const atlasResourceFiles = files.filter(value => value.endsWith(".png") || value.endsWith(".json"));
+                let skip = true;
+
+
+
+                if (force) {
+                    skip = false;
+                }
+
+                if (atlasResourceFiles.length > 0) {
+                    atlasResourceFiles.forEach(file => {
+                        let fileId = path.join(atlasDir, file);
+                        if (oldHash[fileId] === undefined || oldHash[fileId] !== newHash[fileId]) {
+                            oldHash[fileId] = newHash[fileId];
+                            skip = false;
+                        }
+                    });
+                }
+
+                for (let hashId in oldHash) {
+                    if (hashId.indexOf(atlasDir) > -1 && newHash[hashId] === undefined) {
+                        oldHash[hashId] = undefined;
+                        skip = false;
+                    }
+                }
+
                 await promiseUtils.sequence(scales.map(scale => {
                     return async () => {
-
-                        const atlasDir = path.join(inputDir, folderName);
-                        const files = (await fs.readdir(atlasDir));
-
-                        const atlasResourceFiles = files.filter(value => value.endsWith(".png") || value.endsWith(".json"));
                         const atlasConfig = await getAtlasConfig(atlasDir);
                         const outputTextureFormat = ((atlasConfig.jpeg || atlasConfig.jpg) && textureFormat === "png") ? "jpeg" : textureFormat;
                         const atlasName = getAtlasName(folderName, scale);
 
-                        let skip = true;
-
-                        if (atlasResourceFiles.length > 0) {
-                            atlasResourceFiles.forEach(file => {
-                                let fileId = path.join(atlasDir, file);
-                                if (oldHash[fileId] === undefined || oldHash[fileId] !== newHash[fileId]) {
-                                    skip = false;
-                                    oldHash[fileId] = newHash[fileId];
-                                }
-                            });
-
-                            if (force) {
-                                skip = false;
-                            }
-
-                            if (appendFileHash) {
-                                skip = false;
-                            }
-
-                            const atlasExists = await isAtlasExists(outputDir, atlasName, outputTextureFormat);
-                            if (!atlasExists) {
-                                skip = false;
-                            }
-                        }
-
-                        for (let hashId in oldHash) {
-                            if (hashId.indexOf(atlasDir) > -1 && newHash[hashId] === undefined) {
-                                oldHash[hashId] = undefined;
-                                skip = false;
-                            }
+                        const atlasMatchFiles = await getAtlasMatchFiles(outputDir, atlasName, outputTextureFormat);
+                        if (atlasMatchFiles.length < 2) {
+                            skip = false;
                         }
 
                         if (!skip) {
-                            await pack({
+                            if (atlasMatchFiles.length) {
+                                await Promise.all(atlasMatchFiles.map(file => fs.unlink(path.join(outputDir, file))));
+                            }
+                            const packConfig = {
                                 atlasDir,
                                 hash: newHash,
                                 scale,
@@ -297,7 +296,8 @@ const packAtlases = async (config = {}) => {
                                 atlasNameMaxHashLength,
                                 textureFormat: outputTextureFormat,
                                 formatConfig
-                            });
+                            };
+                            await pack(packConfig);
                         }
                         await filesHelper.saveHash(hashPath, oldHash);
                         onProgress(++finished, totalSteps);
@@ -367,11 +367,33 @@ const getHash = async () => {
     oldHash = await filesHelper.loadHash(hashPath);
 };
 
-const isAtlasExists = async (atlasPath, atlasName, atlasExtension) => {
-    const filesList = (await fs.readdir(atlasPath))
-        .filter(path => path.endsWith(".json") || path.endsWith(`.${atlasExtension}`));
-    const checkList = [`${atlasName}${appendTextureFormat ? `.${atlasExtension}` : ""}.json`, `${atlasName}.${atlasExtension}`];
-    return checkList.every(item => filesList.includes(item));
+const getAtlasMatchFiles = async (atlasPath, atlasName, atlasExtension) => {
+    const outputList = [];
+
+    const filesList = (await fs.readdir(atlasPath));
+
+    const jsonList = filesList.filter(path => path.endsWith(".json"));
+    const texturesList = filesList.filter(path => path.endsWith(`.${atlasExtension}`));
+
+    for (const file of jsonList) {
+        if (matchFileName(atlasName, appendTextureFormat ? `${atlasExtension}.json` : "json", file)) {
+            outputList.push(file);
+        }
+    }
+
+    for (const file of texturesList) {
+        if (matchFileName(atlasName, atlasExtension, file)) {
+            outputList.push(file);
+        }
+    }
+
+    return outputList;
+};
+
+const matchFileName = (atlasName, atlasExtension, mathStr) => {
+    return appendFileHash ?
+        mathStr.match(`^${atlasName}\.([a-z0-9]{${atlasNameMaxHashLength}})\.${atlasExtension}$`) :
+        mathStr === `${atlasName}.${atlasExtension}`;
 };
 
 const getAtlasConfig = async (atlasDir) => {
