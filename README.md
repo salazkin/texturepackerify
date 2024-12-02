@@ -12,7 +12,7 @@ $ npm install texturepackerify
 
 ## Build Atlases
 
-### Step 1: Organize Your Images
+### Step 1: Organize Images
 
 Place your images into folders. Each folder will be packed into its own atlas. For example:
 
@@ -28,24 +28,42 @@ atlases/
 │   ├── ...
 ```
 
-### Step 2: Create the Packing Script
+### Step 2: Create a Config File
 
-Write a `pack.js` file to configure and run the packing process:
+Create a `.texturepackerify.js` file:
+
+```javascript
+module.exports = {
+  inputDir: "./atlases",
+  outputDir: "./output",
+};
+```
+
+### Step 3: Pack Atlases
+
+Run the following command:
+
+```sh
+texturepackerify
+```
+
+Alternatively, use a script. Create `pack.js`:
 
 ```javascript
 const texturepackerify = require("texturepackerify");
 const packAtlases = async () => {
-  await texturepackerify.pack({ inputDir: "./atlases" });
+  await texturepackerify.pack({
+    inputDir: "./atlases",
+    outputDir: "./output",
+  });
 };
 packAtlases();
 ```
 
-### Step 3: Run the Script
-
-Run the script to pack your images into atlases:
+Run the script:
 
 ```sh
-$ node pack.js
+node pack.js
 ```
 
 ## Pack Config
@@ -84,7 +102,7 @@ The `pack` function accepts a `config` object with the following parameters:
 - **`maxWidth`**: `number`. Maximum texture width (in pixels). Default: `4096`.
 - **`maxHeight`**: `number`. Maximum texture height (in pixels). Default: `4096`.
 
-### `formatConfig` Options
+### `formatConfig` Parameters
 
 - **`jpeg`**:
   - **`quality`**: `number`. Specifies compression quality (1-100). Default: `80`.

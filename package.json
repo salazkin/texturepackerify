@@ -1,7 +1,7 @@
 {
     "name": "texturepackerify",
     "author": "Oleksii Salazkin",
-    "version": "1.2.2",
+    "version": "1.3.0",
     "description": "Tool to pack textures into atlases",
     "keywords": [
         "texture",
@@ -15,6 +15,9 @@
         "build",
         "pipeline"
     ],
+    "bin": {
+        "texturepackerify": "./bin/cli.js"
+    },
     "homepage": "https://github.com/salazkin/texturepackerify",
     "dependencies": {
         "maxrects-packer": "^2.7.3",
