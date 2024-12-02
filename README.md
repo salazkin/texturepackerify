@@ -4,7 +4,7 @@ TexturePackerify is a free, lightweight alternative to TexturePacker, built for 
 
 ## Setup
 
-Install the package via npm:
+Install the package:
 
 ```sh
 $ npm install texturepackerify
@@ -14,21 +14,21 @@ $ npm install texturepackerify
 
 ### Step 1: Organize Images
 
-Place your images into folders. Each folder will be packed into its own atlas. For example:
+Place your images into folders, each forming its own atlas:
 
 ```
 atlases/
 ├── atlas1/
 │   ├── img0.png
 │   ├── img1.png
-│   ├── ...
 ├── atlas2/
 │   ├── img12.png
 │   ├── img13.png
-│   ├── ...
 ```
 
-### Step 2: Create a Config File
+### Step 2: Pack Atlases
+
+#### Using the CLI:
 
 Create a `.texturepackerify.js` file:
 
@@ -39,15 +39,23 @@ module.exports = {
 };
 ```
 
-### Step 3: Pack Atlases
+Add to `package.json`:
 
-Run the following command:
-
-```sh
-texturepackerify
+```json
+"scripts": {
+  "pack": "texturepackerify"
+}
 ```
 
-Alternatively, use a script. Create `pack.js`:
+Run:
+
+```sh
+npm run pack
+```
+
+#### Using a Custom Script:
+
+Create `pack.js`:
 
 ```javascript
 const texturepackerify = require("texturepackerify");
@@ -60,7 +68,7 @@ const packAtlases = async () => {
 packAtlases();
 ```
 
-Run the script:
+Run:
 
 ```sh
 node pack.js
@@ -121,25 +129,21 @@ The `pack` function accepts a `config` object with the following parameters:
 
 - To disable console logs, set `enableLogs: false`. You can also use the `onProgress` callback to customize your progress logs.
 
-### Advanced Example
+### Advanced Config Example
 
 ```javascript
-const texturepackerify = require("texturepackerify");
-const packAtlases = async () => {
-  await texturepackerify.pack({
-    inputDir: "./atlases",
-    outputDir: "./public/assets",
-    textureFormat: "webp",
-    scales: [1, 0.5],
-    defaultAtlasConfig: {
-      pot: false,
-      animations: true,
-      border: 2,
-    },
-    formatConfig: {
-      webp: { quality: 80 },
-    },
-  });
+module.exports = {
+  inputDir: "./atlases",
+  outputDir: "./public/assets",
+  textureFormat: "webp",
+  scales: [1, 0.5],
+  defaultAtlasConfig: {
+    pot: false,
+    animations: true,
+    border: 2,
+  },
+  formatConfig: {
+    webp: { quality: 80 },
+  },
 };
-packAtlases();
 ```
