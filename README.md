@@ -14,16 +14,18 @@ $ npm install texturepackerify
 
 ### Step 1: Organize Images
 
-Place your images into folders, each forming its own atlas:
+Place your images into folders. Each folder will be packed into its own atlas. For example:
 
 ```
 atlases/
 ├── atlas1/
 │   ├── img0.png
 │   ├── img1.png
+│   ├── img2.png
 ├── atlas2/
 │   ├── img12.png
 │   ├── img13.png
+│   ├── img14.png
 ```
 
 ### Step 2: Pack Atlases
@@ -143,7 +145,7 @@ module.exports = {
     border: 2,
   },
   formatConfig: {
-    webp: { quality: 80 },
+    webp: { quality: 60 },
   },
 };
 ```
