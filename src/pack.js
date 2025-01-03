@@ -17,6 +17,7 @@ module.exports = async (packConfig) => {
         hash,
         outputDir,
         atlasName,
+        atlasScaleStr,
         appendFileHash,
         appendTextureFormat,
         atlasNameMaxHashLength,
@@ -47,11 +48,11 @@ module.exports = async (packConfig) => {
     let atlasTextureHashStr = "";
 
     if (appendFileHash) {
-        const textureHash = await filesHelper.getDataHash(atlasTextureData);
-        atlasTextureHashStr = `.${textureHash.slice(0, atlasNameMaxHashLength)}`;
+        const textureHash = await filesHelper.getDataHash(atlasTextureData, true);
+        atlasTextureHashStr = `-${textureHash.slice(0, atlasNameMaxHashLength)}`;
     }
 
-    const atlasOutputName = `${atlasName}${atlasTextureHashStr}.${textureFormat}`;
+    const atlasOutputName = `${atlasName}${atlasTextureHashStr}${atlasScaleStr}.${textureFormat}`;
 
     await sharp(atlasTextureData).toFile(path.join(outputDir, atlasOutputName));
 
@@ -68,12 +69,12 @@ module.exports = async (packConfig) => {
     let atlasTextDataHashStr = "";
 
     if (appendFileHash) {
-        const atlasHash = await filesHelper.getDataHash(atlasTextData);
-        atlasTextDataHashStr = `.${atlasHash.slice(0, atlasNameMaxHashLength)}`;
+        const atlasHash = await filesHelper.getDataHash(atlasTextData, true);
+        atlasTextDataHashStr = `-${atlasHash.slice(0, atlasNameMaxHashLength)}`;
     }
 
     let atlasDataTextureFormatStr = appendTextureFormat ? `.${textureFormat}` : "";
-    const atlasTextDataOutputName = `${atlasName}${atlasTextDataHashStr}${atlasDataTextureFormatStr}.json`;
+    const atlasTextDataOutputName = `${atlasName}${atlasTextDataHashStr}${atlasScaleStr}${atlasDataTextureFormatStr}.json`;
 
     await fs.writeFile(path.join(outputDir, atlasTextDataOutputName), atlasTextData);
 };

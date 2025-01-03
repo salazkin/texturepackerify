@@ -125,7 +125,7 @@ The `pack` function accepts a `config` object with the following parameters:
 ## Quick Tips
 
 - The `hash.json` file can be used to generate versioned atlases. Simply create a hash of this file and append it to the asset URL to prevent browser caching. Example URL: `my_atlas.png?v=kg5n2v3k8l`.
-  Alternatively, you can set `appendFileHash : true` and get files names with hash, such as: `my_atlas.aht7k3bo1m5b2v6p9k1q.png`.
+  Alternatively, you can set `appendFileHash : true` and get files names with hash, such as: `my_atlas-1vIVHTXW75Ce7I8x322Ofw.png`.
 
 - To customize individual atlases, place a `config.json` file in the specific atlas folder. This configuration file will override the `defaultAtlasConfig`. This is useful for tasks like packing only certain atlases as `jpeg` files or adding a `border` to prevent texture glitches.
 

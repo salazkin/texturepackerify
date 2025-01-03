@@ -25,7 +25,7 @@ let appendTextureFormat = false;
 let textureFormat = "";
 let startTime;
 
-const atlasNameMaxHashLength = 20;
+const atlasNameMaxHashLength = 22;
 
 let defaultAtlasConfig = {
     extraSpace: 2,
@@ -271,9 +271,9 @@ const packAtlases = async (config = {}) => {
                     return async () => {
                         const atlasConfig = await getAtlasConfig(atlasDir);
                         const outputTextureFormat = ((atlasConfig.jpeg || atlasConfig.jpg) && textureFormat === "png") ? "jpeg" : textureFormat;
-                        const atlasName = getAtlasName(folderName, scale);
-
-                        const atlasMatchFiles = await getAtlasMatchFiles(outputDir, atlasName, outputTextureFormat);
+                        const atlasName = folderName;
+                        const atlasScaleStr = (scales.length === 1 && scales[0] === 1) ? "" : `@${scale}x`;
+                        const atlasMatchFiles = await getAtlasMatchFiles(outputDir, atlasName, atlasScaleStr, outputTextureFormat);
                         if (atlasMatchFiles.length < 2) {
                             skip = false;
                         }
@@ -289,6 +289,7 @@ const packAtlases = async (config = {}) => {
                                 atlasConfig,
                                 outputDir,
                                 atlasName,
+                                atlasScaleStr,
                                 appendFileHash,
                                 appendTextureFormat,
                                 atlasNameMaxHashLength,
@@ -349,10 +350,6 @@ const onProgress = (finished, total) => {
     }
 };
 
-const getAtlasName = (folderName, scale) => {
-    return (scales.length === 1 && scales[0] === 1) ? folderName : `${folderName}@${scale}x`;
-};
-
 const getHash = async () => {
     const list = await getFiles();
     newHash = {};
@@ -365,7 +362,7 @@ const getHash = async () => {
     oldHash = await filesHelper.loadHash(hashPath);
 };
 
-const getAtlasMatchFiles = async (atlasPath, atlasName, atlasExtension) => {
+const getAtlasMatchFiles = async (atlasPath, atlasName, atlasScaleStr, atlasExtension) => {
     const outputList = [];
 
     const filesList = (await fs.readdir(atlasPath));
@@ -374,13 +371,13 @@ const getAtlasMatchFiles = async (atlasPath, atlasName, atlasExtension) => {
     const texturesList = filesList.filter(path => path.endsWith(`.${atlasExtension}`));
 
     for (const file of jsonList) {
-        if (matchFileName(atlasName, appendTextureFormat ? `${atlasExtension}.json` : "json", file)) {
+        if (matchFileName(atlasName, atlasScaleStr, appendTextureFormat ? `${atlasExtension}.json` : "json", file)) {
             outputList.push(file);
         }
     }
 
     for (const file of texturesList) {
-        if (matchFileName(atlasName, atlasExtension, file)) {
+        if (matchFileName(atlasName, atlasScaleStr, atlasExtension, file)) {
             outputList.push(file);
         }
     }
@@ -388,10 +385,10 @@ const getAtlasMatchFiles = async (atlasPath, atlasName, atlasExtension) => {
     return outputList;
 };
 
-const matchFileName = (atlasName, atlasExtension, mathStr) => {
+const matchFileName = (atlasName, atlasScaleStr, atlasExtension, matchStr) => {
     return appendFileHash ?
-        mathStr.match(`^${atlasName}\.([a-z0-9]{${atlasNameMaxHashLength}})\.${atlasExtension}$`) :
-        mathStr === `${atlasName}.${atlasExtension}`;
+        matchStr.match(`^${atlasName}\-([A-Za-z0-9_-]{${atlasNameMaxHashLength}})${atlasScaleStr}\.${atlasExtension}$`) :
+        matchStr === `${atlasName}${atlasScaleStr}.${atlasExtension}`;
 };
 
 const getAtlasConfig = async (atlasDir) => {

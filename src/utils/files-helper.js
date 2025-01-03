@@ -53,8 +53,11 @@ const loadHash = async (hashPath) => {
     return hashData;
 };
 
-const getDataHash = async (data) => {
-    return crypto.createHash("md5").update(data).digest("hex");
+const getDataHash = async (data, base64 = false) => {
+    const hash = crypto.createHash("md5").update(data).digest("hex");
+    return base64
+        ? Buffer.from(hash, 'hex').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+        : hash
 };
 
 const saveHash = async (hashPath, hash) => {
