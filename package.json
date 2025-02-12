@@ -1,8 +1,9 @@
 {
     "name": "texturepackerify",
     "author": "Oleksii Salazkin",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "description": "Tool to pack textures into atlases",
+    "main": "src/texturepackerify.js",
     "keywords": [
         "texture",
         "packer",
@@ -13,7 +14,7 @@
         "atlas",
         "textures",
         "build",
-        "pipeline"
+        "pack"
     ],
     "bin": {
         "texturepackerify": "./bin/cli.js"

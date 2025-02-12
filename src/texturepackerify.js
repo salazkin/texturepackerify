@@ -2,10 +2,10 @@
 
 const fs = require("fs/promises");
 const path = require("path");
-const pack = require('./src/pack');
-const filesHelper = require('./src/utils/files-helper');
-const promiseUtils = require('./src/utils/promise-utils');
-const log = require('./src/utils/log');
+const pack = require('./pack-atlas');
+const filesHelper = require('./utils/files-helper');
+const promiseUtils = require('./utils/promise-utils');
+const log = require('./utils/log');
 
 const tempDir = ".texturepackerify";
 const availableFormats = ["png", "jpeg", "webp", "avif"];
